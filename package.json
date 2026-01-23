@@ -1,0 +1,24 @@
+{
+  "name": "sistema_di_manutenzione-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlesssMAK/sistema_di_manutenzione-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AlesssMAK/sistema_di_manutenzione-backend/issues"
+  },
+  "homepage": "https://github.com/AlesssMAK/sistema_di_manutenzione-backend#readme",
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
