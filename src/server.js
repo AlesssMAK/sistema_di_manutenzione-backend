@@ -8,6 +8,7 @@ import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { errors } from 'celebrate';
 import { connectMongoDB } from './db/connectMongoDB.js';
 import helmet from 'helmet';
+import authRoutes from './routes/authRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3030;
@@ -22,7 +23,7 @@ app.use(
   }),
 );
 app.use(cookieParser());
-
+app.use(authRoutes);
 app.use(notFoundHandler);
 app.use(errors());
 app.use(errorHandler);

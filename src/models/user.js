@@ -19,9 +19,8 @@ const userSchema = new Schema(
     },
     lastname: {
       type: String,
-      required: false,
+      required: true,
       trim: true,
-      default: '',
     },
     // возможно нужно добавить и страну
     city: {
@@ -35,9 +34,9 @@ const userSchema = new Schema(
       required: [true, 'Phone number is required'],
       unique: true,
       trim: true,
-      match: [/^\+380\d{9}$/, 'Phone must be in format +380XXXXXXXXX'],
+      match: [/^\+39\d{10}$/, 'Phone must be in format +39XXXXXXXXXX'], //для Италии
     },
-    avatar_id: {
+    avatar: {
       type: String,
       required: false,
       default: '',
@@ -46,19 +45,12 @@ const userSchema = new Schema(
       type: String,
       required: [true, 'Role is required'],
       trim: true,
-      default: 'maintenanceWorker',
-      enum: ['оperator', 'admin', 'manager', 'maintenanceWorker', 'safety'],
+      default: 'operator',
+      enum: ['operator', 'admin', 'manager', 'maintenanceWorker', 'safety'],
     },
   },
   { timestamps: true, versionKey: false },
 );
-
-userSchema.pre('save', function (next) {
-  if (!this.name) {
-    this.name = this.email;
-  }
-  next();
-});
 
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
