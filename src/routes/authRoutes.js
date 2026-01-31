@@ -4,6 +4,7 @@ import { registerUserSchema } from '../validations/authValidation.js';
 import { registerUser } from '../controllers/authController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 import { authLimiter } from '../middleware/rateLimitAuth.js';
+// import { requireAdmin } from '../middleware/requireAdmin.js';
 
 const router = Router();
 
@@ -11,6 +12,8 @@ const router = Router();
 router.post(
   '/auth/register',
   authLimiter,
+
+  // requireAdmin,
   celebrate(registerUserSchema),
   ctrlWrapper(registerUser),
 );
