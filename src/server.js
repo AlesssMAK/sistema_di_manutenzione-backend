@@ -9,6 +9,7 @@ import { errors } from 'celebrate';
 import { connectMongoDB } from './db/connectMongoDB.js';
 import helmet from 'helmet';
 import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import { authenticate } from './middleware/authenticate.js';
 import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
@@ -72,6 +73,7 @@ app.use(
 );
 app.use(cookieParser());
 app.use(authRoutes);
+app.use(userRoutes);
 app.use(notFoundHandler);
 app.use(errors());
 app.use(errorHandler);
