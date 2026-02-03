@@ -10,4 +10,11 @@ router.patch(
   requireAdmin,
   ctrlWrapper(updateProfile),
 );
+
+router.put(
+  '/users/:userId',
+  authenticate,
+  requireAdmin,
+  ctrlWrapper(updateProfile),
+);
 export default router;
