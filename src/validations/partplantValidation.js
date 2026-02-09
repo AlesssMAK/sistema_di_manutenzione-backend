@@ -1,16 +1,7 @@
 import { Joi, Segments } from 'celebrate';
 export const createPartPlantSchema = {
   [Segments.BODY]: Joi.object({
-    plants: Joi.array()
-      .items(
-        Joi.object({
-          plantId: Joi.string()
-            .regex(/^[0-9a-fA-F]{24}$/)
-            .required(),
-        }),
-      )
-      .min(1)
-      .required(),
+    plantId: Joi.string().trim().min(4).required(),
     namePartPlant: Joi.string().trim().min(4).required(),
     codePartPlant: Joi.string().trim().min(4).required(),
     location: Joi.string().min(4).trim().required(),
