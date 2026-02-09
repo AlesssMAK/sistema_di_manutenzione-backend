@@ -6,10 +6,10 @@
  *       type: object
  *       required:
  *         - name
- *         - email
- *         - password
  *         - lastname
+ *         - email
  *         - phone
+ *         - password
  *         - role
  *       properties:
  *         _id:
@@ -99,38 +99,38 @@
  *     PartPlant:
  *       type: object
  *       required:
- *         - plants
+ *         - plantId
  *         - namePartPlant
  *         - codePartPlant
  *         - location
  *       properties:
  *         _id:
  *           type: string
- *           description: Auto-generated part ID
+ *           description: Auto-generated part plant ID
  *           example: 65b2c3d4e5f6a7b8c9d0e1f2
- *         plants:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               plantId:
- *                 type: string
- *                 description: Reference to the Plant ID
- *                 example: 65a1b2c3d4e5f6a7b8c9d0e1
+ *         plantId:
+ *           type: string
+ *           description: Reference to the Plant ID
+ *           example: 65a1b2c3d4e5f6a7b8c9d0e1
  *         namePartPlant:
  *           type: string
+ *           minLength: 4
  *           description: Name of the specific plant part/sector
  *           example: Cooling Tower A
  *         codePartPlant:
  *           type: string
+ *           minLength: 4
  *           description: Unique code for the part
  *           example: CTA-55
  *         location:
  *           type: string
+ *           minLength: 4
  *           description: Specific location within the plant
  *           example: North Wing, Level 2
  *         description:
  *           type: string
+ *           nullable: true
+ *           description: Optional description of the plant part
  *           example: Primary cooling system for turbine 1
  *         createdAt:
  *           type: string
