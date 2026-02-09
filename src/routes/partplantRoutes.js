@@ -6,7 +6,7 @@ import { requireAdmin } from '../middleware/requireAdmin.js';
 import { createPartPlant } from '../controllers/partPlantController.js';
 const router = Router();
 router.post(
-  '/plants/:id/parts',
+  '/plants/parts',
   authenticate,
   requireAdmin,
   celebrate(createPartPlantSchema),

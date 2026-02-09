@@ -2,7 +2,7 @@ import { PartPlant } from '../models/part.js';
 import createHttpError from 'http-errors';
 export const createPartPlant = async (req, res, next) => {
   try {
-    const { plantId, namePartPlant, codePartPlant, location, description } =
+    const { plants, namePartPlant, codePartPlant, location, description } =
       req.body;
     const existingPartPlant = await PartPlant.findOne({
       $or: [{ namePartPlant }, { codePartPlant }],
@@ -13,7 +13,7 @@ export const createPartPlant = async (req, res, next) => {
     }
 
     const newPartPlant = await PartPlant.create({
-      plants: [{ plantId }],
+      plants,
       namePartPlant,
       codePartPlant,
       location,
