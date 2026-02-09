@@ -3,6 +3,15 @@ import { model } from 'mongoose';
 
 const partPlantSchema = new Schema(
   {
+    plants: [
+      {
+        plantId: {
+          type: Schema.Types.ObjectId,
+          ref: 'Plant',
+          required: true,
+        },
+      },
+    ],
     namePartPlant: { type: String, required: true },
     codePartPlant: { type: String, required: true },
     location: { type: String, required: true },
