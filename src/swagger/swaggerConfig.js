@@ -18,7 +18,7 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      // url: 'https://toolnext-group-project-backend.onrender.com/',
+      url: 'https://sistema-di-manutenzione-backend.onrender.com//',
       description: 'Development server',
     },
   ],
