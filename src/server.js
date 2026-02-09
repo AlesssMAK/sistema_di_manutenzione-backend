@@ -17,6 +17,8 @@ import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
 import { adminOptions } from './admin/admin.config.js';
 import MongoStore from 'connect-mongo';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger/swaggerConfig.js';
 
 const app = express();
 const PORT = process.env.PORT || 3030;
@@ -74,6 +76,10 @@ app.use(
   }),
 );
 app.use(cookieParser());
+
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+//routes
 app.use(authRoutes);
 app.use(userRoutes);
 app.use(plantsRoutes);
