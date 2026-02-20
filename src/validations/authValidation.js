@@ -1,4 +1,5 @@
 import { Joi, Segments } from 'celebrate';
+import { USER_STATUS } from '../constants/status.js';
 
 export const registerUserSchema = {
   [Segments.BODY]: Joi.object({
@@ -15,6 +16,10 @@ export const registerUserSchema = {
     role: Joi.string()
       .valid('operator', 'admin', 'manager', 'maintenanceWorker', 'safety')
       .default('operator')
+      .required(),
+    status: Joi.string()
+      .valid(...Object.values(USER_STATUS)) // беремо всі значення з вашої константи
+      .default(USER_STATUS.ACTIVE)
       .required(),
   }),
 };

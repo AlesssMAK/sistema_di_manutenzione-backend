@@ -1,4 +1,5 @@
 import { model, Schema } from 'mongoose';
+import { USER_STATUS } from '../constants/status.js';
 
 const userSchema = new Schema(
   {
@@ -47,6 +48,12 @@ const userSchema = new Schema(
       trim: true,
       default: 'operator',
       enum: ['operator', 'admin', 'manager', 'maintenanceWorker', 'safety'],
+    },
+    status: {
+      type: String,
+      enum: USER_STATUS,
+      default: USER_STATUS.ACTIVE,
+      required: true,
     },
   },
   { timestamps: true, versionKey: false },

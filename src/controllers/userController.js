@@ -12,6 +12,7 @@ export const updateProfile = async (req, res) => {
     'city',
     'avatar',
     'role',
+    'status',
   ];
   const updates = {};
 
@@ -42,4 +43,16 @@ export const updateProfile = async (req, res) => {
     message: 'User updated by admin successfully',
     data: updatedUser,
   });
+};
+
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const userList = await User.find().select('name');
+    res.status(200).json({
+      status: 'success',
+      data: userList,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
