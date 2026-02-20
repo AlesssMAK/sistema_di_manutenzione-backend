@@ -43,3 +43,15 @@ export const updateProfile = async (req, res) => {
     data: updatedUser,
   });
 };
+
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const userList = await User.find().select('name');
+    res.status(200).json({
+      status: 'success',
+      data: userList,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
