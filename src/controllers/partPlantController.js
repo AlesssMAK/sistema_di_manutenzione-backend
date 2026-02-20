@@ -1,5 +1,6 @@
 import { PartPlant } from '../models/part.js';
 import createHttpError from 'http-errors';
+import { Plant } from '../models/plant.js';
 export const createPartPlant = async (req, res, next) => {
   try {
     const { plantId, namePartPlant, codePartPlant, location, description } =
@@ -31,6 +32,12 @@ export const createPartPlant = async (req, res, next) => {
 };
 export const getAllPartPlants = async (req, res) => {
   const { plantId } = req.params;
+
+  const isPlantExist = await Plant.exists({ _id: plantId });
+
+  if (!isPlantExist) {
+    throw createHttpError(404, `Plant with ID ${plantId} not found`);
+  }
   const page = parseInt(req.query.page) || 1;
   const perPage = parseInt(req.query.perPage) || 12;
 

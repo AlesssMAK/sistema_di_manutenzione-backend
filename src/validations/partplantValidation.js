@@ -10,7 +10,11 @@ export const createPartPlantSchema = {
 };
 export const getPartsSchema = {
   [Segments.PARAMS]: Joi.object({
-    plantId: Joi.string().required(),
+    plantId: Joi.string().hex().length(24).required().messages({
+      'string.length': 'ID машины должен содержать ровно 24 символа',
+      'string.hex':
+        'ID машины должен содержать только шестнадцатеричные символы',
+    }),
   }),
   [Segments.QUERY]: Joi.object({
     page: Joi.number().integer().min(1).default(1),
