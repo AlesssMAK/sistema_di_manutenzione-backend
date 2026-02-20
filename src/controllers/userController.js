@@ -12,6 +12,7 @@ export const updateProfile = async (req, res) => {
     'city',
     'avatar',
     'role',
+    'status',
   ];
   const updates = {};
 
