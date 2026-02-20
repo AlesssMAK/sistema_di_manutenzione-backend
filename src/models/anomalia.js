@@ -1,4 +1,5 @@
 import { model, Schema } from 'mongoose';
+import { TYPE_ANOMALII } from '../constants/typeAnomalii';
 
 const anomaliaSchema = new Schema(
   {
@@ -17,7 +18,7 @@ const anomaliaSchema = new Schema(
       type: String,
       required: true,
     },
-    timeCraeted: {
+    timeCreated: {
       type: String,
       required: true,
       trim: true,
@@ -25,22 +26,22 @@ const anomaliaSchema = new Schema(
 
     plantId: {
       type: String,
-      required: false,
+      required: true,
       trim: true,
-      default: '',
     },
     partId: {
       type: String,
-      required: [true, 'Phone number is required'],
+      required: true,
     },
     typeAnomalii: {
       type: String,
-      required: false,
-      default: '',
+      enum: TYPE_ANOMALII,
+      required: true,
+      default: 'Produzione',
     },
     comment: {
       type: String,
-      required: [true, 'Role is required'],
+      required: true,
     },
     img: {
       type: String,
