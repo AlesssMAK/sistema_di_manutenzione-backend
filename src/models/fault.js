@@ -10,7 +10,6 @@ const faultSchema = new Schema(
     },
     nameOperator: {
       type: String,
-      unique: true,
       required: true,
       trim: true,
     },
@@ -27,17 +26,18 @@ const faultSchema = new Schema(
     plantId: {
       type: String,
       required: true,
-      trim: true,
+      ref: 'Plant',
     },
     partId: {
       type: String,
       required: true,
+      ref: 'PartPlant',
     },
     typefault: {
       type: String,
-      enum: TYPE_FAULT,
+      enum: Object.values(TYPE_FAULT),
       required: true,
-      default: 'Produzione',
+      default: TYPE_FAULT.PRODUZIONE,
     },
     comment: {
       type: String,
