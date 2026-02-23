@@ -1,12 +1,13 @@
 import { Fault } from '../models/fault.js';
 import { Counter } from '../models/counter.js';
 import { PartPlant } from '../models/part.js';
+import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 
 export const createFault = async (req, res) => {
   try {
     const plantId = req.body.plantId?.trim();
     const partId = req.body.partId?.trim();
-    const { typefault, comment, img } = req.body;
+    const { typefault, comment } = req.body;
 
     const partExists = await PartPlant.findOne({
       _id: partId,
@@ -18,7 +19,14 @@ export const createFault = async (req, res) => {
           'Error: Ця деталь (partId) не належить до цієї машини (plantId).',
       });
     }
-
+    let imageUrl = null;
+    if (req.file) {
+      const cloudinaryResult = await saveFileToCloudinary(
+        req.file.buffer,
+        'faults',
+      );
+      imageUrl = cloudinaryResult.secure_url;
+    }
     const counter = await Counter.findOneAndUpdate(
       { id: 'fault_id' },
       { $inc: { seq: 1 } },
@@ -53,7 +61,7 @@ export const createFault = async (req, res) => {
       partId,
       typefault,
       comment,
-      img,
+      img: imageUrl,
     });
 
     return res.status(201).json(newFault);

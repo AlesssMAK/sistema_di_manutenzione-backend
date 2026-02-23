@@ -33,6 +33,7 @@
     "adminjs": "^7.8.17",
     "bcrypt": "^6.0.0",
     "celebrate": "^15.0.3",
+    "cloudinary": "^2.9.0",
     "connect-mongo": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
