@@ -13,6 +13,10 @@ export const registerUserSchema = {
     lastname: Joi.string().max(32).required(),
     city: Joi.string().max(32).allow('').default(''),
     avatar: Joi.string().min(8).allow('').default(''),
+    personalCode: Joi.string()
+      .uppercase()
+      .regex(/^[A-Z]{2}\d{3}$/)
+      .required(),
     role: Joi.string()
       .valid('operator', 'admin', 'manager', 'maintenanceWorker', 'safety')
       .default('operator')
@@ -23,9 +27,18 @@ export const registerUserSchema = {
       .required(),
   }),
 };
+// export const loginUserSchema = {
+//   [Segments.BODY]: Joi.object({
+//     email: Joi.string().email().required(),
+//     password: Joi.string().required(),
+//   }),
+// };
 export const loginUserSchema = {
   [Segments.BODY]: Joi.object({
-    email: Joi.string().email().required(),
+    email: Joi.string().email(),
+    personalCode: Joi.string()
+      .uppercase()
+      .regex(/^[A-Z]{2}\d{3}$/),
     password: Joi.string().required(),
-  }),
+  }).xor('email', 'personalCode'), // Требует строго одно из двух
 };

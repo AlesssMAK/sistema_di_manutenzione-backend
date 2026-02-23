@@ -8,6 +8,7 @@ import {
   registerUser,
   refreshUserSession,
   loginUser,
+  registerOperator,
 } from '../controllers/authController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 import { authLimiter } from '../middleware/rateLimitAuth.js';
@@ -27,5 +28,10 @@ router.post(
 
 router.post('/auth/refresh', refreshUserSession);
 router.post('/auth/login', celebrate(loginUserSchema), loginUser);
+router.patch(
+  '/auth/change-password',
+  celebrate(loginUserSchema),
+  registerOperator,
+);
 
 export default router;
