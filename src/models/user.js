@@ -55,6 +55,18 @@ const userSchema = new Schema(
       default: USER_STATUS.ACTIVE,
       required: true,
     },
+    personalCode: {
+      type: String,
+      unique: true,
+      sparse: true, // Позволяет быть null для админов, но уникальным для операторов
+      trim: true,
+      uppercase: true,
+      match: [/^[A-Z]{2}\d{3}$/, 'Code must be in format OP001'],
+    },
+    isFirstLogin: {
+      type: Boolean,
+      default: true, // Чтобы отследить первый вход и заставить сменить пароль
+    },
   },
   { timestamps: true, versionKey: false },
 );

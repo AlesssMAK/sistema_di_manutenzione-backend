@@ -46,7 +46,7 @@ export const createFault = async (req, res) => {
 
     const newFault = await Fault.create({
       id_fault,
-      // nameOperator: req.user?.name || 'Unknown Operator', // Защита на случай отсутствия имени
+      nameOperator: req.user?.name || 'Unknown Operator', // Защита на случай отсутствия имени
       dataCreated,
       timeCreated,
       plantId,

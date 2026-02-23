@@ -8,11 +8,11 @@ const faultSchema = new Schema(
       required: true,
       trim: true,
     },
-    // nameOperator: {
-    //   type: String,
-    //   required: true,
-    //   trim: true,
-    // },
+    nameOperator: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     dataCreated: {
       type: String,
       required: true,
