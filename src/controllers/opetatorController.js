@@ -2,6 +2,7 @@ import { Fault } from '../models/fault.js';
 import { Counter } from '../models/counter.js';
 import { PartPlant } from '../models/part.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
+import { User } from '../models/user.js';
 
 export const createFault = async (req, res) => {
   try {
@@ -70,5 +71,18 @@ export const createFault = async (req, res) => {
       message: 'Помилка при реєстрації несправності',
       error: error.message,
     });
+  }
+};
+
+export const getAllOperators = async (req, res, next) => {
+  try {
+    const operators = await User.find({ role: 'operator' }).select('name');
+    res.status(200).json({
+      status: 'success',
+      results: operators.length,
+      data: operators,
+    });
+  } catch (error) {
+    next(error);
   }
 };
