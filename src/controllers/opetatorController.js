@@ -10,6 +10,12 @@ export const createFault = async (req, res) => {
     const partId = req.body.partId?.trim();
     const { typefault, comment } = req.body;
 
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Користувач не авторизований' });
+    }
+
     const partExists = await PartPlant.findOne({
       _id: partId,
       plantId: plantId,
@@ -55,6 +61,7 @@ export const createFault = async (req, res) => {
 
     const newFault = await Fault.create({
       id_fault,
+      userId,
       nameOperator: req.user?.name || 'Unknown Operator', // Защита на случай отсутствия имени
       dataCreated,
       timeCreated,
