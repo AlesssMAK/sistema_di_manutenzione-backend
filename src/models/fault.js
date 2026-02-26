@@ -52,6 +52,38 @@ const faultSchema = new Schema(
       type: String,
       required: false,
     },
+    priority: {
+      type: String,
+      enum: ['Bassa', 'Media', 'Alta'], // Низкая, Средняя, Высокая
+      default: 'Media',
+    },
+    assignedMaintainers: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User', //монтер
+      },
+    ],
+    managerComment: {
+      type: String,
+      trim: true,
+    },
+    deadline: {
+      type: String,
+    },
+    plannedDate: {
+      type: String, // "Data Pianificata"
+    },
+    plannedTime: {
+      type: String, // "Ora Pianificata"
+    },
+    estimatedDuration: {
+      type: Number, // "Durata Stimata (minuti)"
+      default: 60,
+    },
+    managerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
   },
   { timestamps: true, versionKey: false },
 );

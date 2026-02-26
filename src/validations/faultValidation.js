@@ -16,3 +16,16 @@ export const createFaultSchema = {
     img: Joi.string().uri().allow('', null),
   }),
 };
+
+export const addedByManagerSchema = {
+  [Segments.BODY]: Joi.object({
+    faultId: Joi.string().required(),
+    priority: Joi.string().valid('Bassa', 'Media', 'Alta').required(),
+    assignedMaintainers: Joi.array().items(Joi.string().trim()),
+    plannedDate: Joi.string().required(),
+    plannedTime: Joi.string().required(),
+    deadline: Joi.string().required(),
+    estimatedDuration: Joi.number().min(1).required(),
+    managerComment: Joi.string().allow('', null),
+  }),
+};

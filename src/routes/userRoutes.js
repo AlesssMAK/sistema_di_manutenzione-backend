@@ -19,4 +19,5 @@ router.put(
   ctrlWrapper(updateProfile),
 );
 router.get('/users', ctrlWrapper(getAllUsers));
+
 export default router;
