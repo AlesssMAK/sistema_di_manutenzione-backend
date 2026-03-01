@@ -44,27 +44,27 @@ export const createFault = async (req, res) => {
     const id_fault = `FLT-${sequenceNumber.toString().padStart(3, '0')}`;
 
     // Реєстрація часу (Італія)
-    const now = new Date();
-    const dataCreated = now.toLocaleDateString('it-IT', {
-      timeZone: 'Europe/Rome',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    // const now = new Date();
+    // const dataCreated = now.toLocaleDateString('it-IT', {
+    //   timeZone: 'Europe/Rome',
+    //   day: '2-digit',
+    //   month: '2-digit',
+    //   year: 'numeric',
+    // });
 
-    const timeCreated = now.toLocaleTimeString('it-IT', {
-      timeZone: 'Europe/Rome',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
+    // const timeCreated = now.toLocaleTimeString('it-IT', {
+    //   timeZone: 'Europe/Rome',
+    //   hour: '2-digit',
+    //   minute: '2-digit',
+    //   hour12: false,
+    // });
 
     const newFault = await Fault.create({
       id_fault,
       userId,
       nameOperator: req.user?.name || 'Unknown Operator', // Защита на случай отсутствия имени
-      dataCreated,
-      timeCreated,
+      // dataCreated,
+      // timeCreated,
       plantId,
       partId,
       typefault,
