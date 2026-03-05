@@ -3,6 +3,11 @@ import { TYPE_FAULT } from '../constants/typeFault.js';
 
 export const createFaultSchema = {
   [Segments.BODY]: Joi.object({
+    faultId: Joi.string()
+      .pattern(/^SEG-\d{4}-\d{2}-\d{3}$/)
+      .required(),
+    dataCreated: Joi.date().iso().required(), //тільки дата, без часу
+    timeCreated: Joi.string().required(),
     // plantId и partId должны быть строками (ID из базы)
     plantId: Joi.string().trim().required(),
     partId: Joi.string().trim().required(),

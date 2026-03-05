@@ -5,13 +5,13 @@ const generateFaultId = async () => {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const lastFault = await Fault.findOne({
-    FaultId: { $regex: `^SEG-${year}-${month}-` },
+    faultId: { $regex: `^SEG-${year}-${month}-` },
   })
-    .sort({ FaultId: -1 })
+    .sort({ faultId: -1 })
     .lean();
   let nextNumber = 1;
   if (lastFault) {
-    const lastId = lastFault.FaultId;
+    const lastId = lastFault.faultId;
     const lastNum = Number(lastId.split('-')[3]);
     nextNumber = lastNum + 1;
   }

@@ -4,6 +4,7 @@ import { celebrate } from 'celebrate';
 // import { authenticate } from '../middleware/authenticate';
 import { addFault } from '../controllers/managerController.js';
 const router = Router();
+
 router.post(
   '/manager/fault',
   // authenticate,
