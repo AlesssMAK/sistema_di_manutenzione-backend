@@ -18,16 +18,15 @@ const faultSchema = new Schema(
       ref: 'User',
       required: true,
     },
-    // dataCreated: {
-    //   type: String,
-    //   required: true,
-    // },
-    // timeCreated: {
-    //   type: String,
-    //   required: true,
-    //   trim: true,
-    // },
-
+    dataCreated: {
+      type: Date,
+      required: true,
+    },
+    timeCreated: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     plantId: {
       type: String,
       required: true,
