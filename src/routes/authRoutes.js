@@ -12,16 +12,16 @@ import {
 } from '../controllers/authController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 import { authLimiter } from '../middleware/rateLimitAuth.js';
-import { requireAdmin } from '../middleware/requireAdmin.js';
-import { authenticate } from '../middleware/authenticate.js';
+// import { requireAdmin } from '../middleware/requireAdmin.js';
+// import { authenticate } from '../middleware/authenticate.js';
 
 const router = Router();
 
 router.post(
   '/auth/register',
-  authenticate,
+  // authenticate,
   authLimiter,
-  requireAdmin,
+  // requireAdmin,
   celebrate(registerUserSchema),
   ctrlWrapper(registerUser),
 );

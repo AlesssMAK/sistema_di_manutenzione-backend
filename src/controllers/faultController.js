@@ -52,8 +52,7 @@ export const createFault = async (req, res) => {
   const newFault = await Fault.create({
     faultId,
     userId,
-    nameOperator: req.user?.name || 'Unknown Operator', // Защита на случай отсутствия имени
-    lastnameOperator: req.user?.lastName || 'Unknown Operator',
+    nameOperator: req.user?.fullName || 'Unknown Operator', // Защита на случай отсутствия имени
     dataCreated,
     timeCreated,
     plantId,
@@ -77,3 +76,5 @@ export const createFault = async (req, res) => {
 
   return res.status(201).json(populatedFault);
 };
+
+export const getAllFault = async (req, res) => {};
