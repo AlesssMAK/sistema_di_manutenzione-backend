@@ -15,4 +15,6 @@ router.post(
   createFault,
 );
 
+// router.get('/fault', )
+
 export default router;

@@ -5,35 +5,35 @@ import { createSession, setSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
 
 export const registerUser = async (req, res) => {
-  const { name, email, phone, password, role, lastname, personalCode } =
-    req.body;
+  const { fullName, email, password, role, personalCode } = req.body;
 
   const existingUser = await User.findOne({
-    $or: [{ email }, { phone }, { personalCode: personalCode || null }],
+    $or: [{ email }, { personalCode: personalCode || null }],
   });
 
   if (existingUser) {
     if (existingUser.email === email) {
-      throw createHttpError(400, 'Email address is already in use');
-    }
-    if (existingUser.phone === phone) {
-      throw createHttpError(400, 'Phone number is already in use');
+      if (existingUser.role !== 'operator') {
+        throw createHttpError(400, 'Email address is already in use');
+      }
     }
     if (personalCode && existingUser.personalCode === personalCode) {
       throw createHttpError(400, 'Personal code is already in use');
     }
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  let hashedPassword = null;
+
+  if (role !== 'operator') {
+    hashedPassword = await bcrypt.hash(password, 10);
+  }
 
   const newUser = await User.create({
-    name,
+    fullName,
     email,
-    phone,
-    personalCode,
-    password: hashedPassword,
+    password: role === 'operator' ? undefined : hashedPassword,
+    personalCode: role === 'operator' ? personalCode : undefined,
     role,
-    lastname,
   });
   const newSession = await createSession(newUser._id);
   setSessionCookies(res, newSession);
@@ -47,12 +47,12 @@ export const refreshUserSession = async (req, res, next) => {
     refreshToken: req.cookies.refreshToken,
   });
   if (!session) {
-    return next(createHttpError(401, 'Session not found'));
+    throw createHttpError(401, 'Session not found');
   }
   const isSessionTokenExpired =
     new Date() > new Date(session.refreshTokenValidUntil);
   if (isSessionTokenExpired) {
-    return next(createHttpError(401, 'Session token expired'));
+    throw createHttpError(401, 'Session token expired');
   }
   await Session.deleteOne({
     _id: req.cookies.sessionId,
@@ -68,39 +68,55 @@ export const refreshUserSession = async (req, res, next) => {
 
 ///login
 export const loginUser = async (req, res, next) => {
-  const { email, personalCode, password } = req.body;
+  const { fullName, email, personalCode, password } = req.body;
   let user;
 
-  if (personalCode) {
-    // Вхід для оператора по коду (OP001)
-    user = await User.findOne({ personalCode });
-  } else if (email) {
-    // Вхід для адміна/менеджера
-    user = await User.findOne({ email });
+  // ---------- ЛОГІН ОПЕРАТОРА (без пароля) ----------
+  if (fullName && personalCode) {
+    user = await User.findOne({
+      fullName,
+      personalCode,
+      role: 'operator',
+    });
+
+    if (!user) {
+      throw createHttpError(401, 'Operator not found');
+    }
+
+    await Session.deleteOne({ userId: user._id });
+    const newSession = await createSession(user._id);
+    setSessionCookies(res, newSession);
+
+    return res.status(200).json({
+      user,
+      mustChangePassword: false,
+    });
   }
 
-  if (!user) {
-    return next(createHttpError(401, 'User not found'));
+  // ---------- ЛОГІН ІНШИХ РОЛЕЙ (email + password) ----------
+  if (email && password) {
+    user = await User.findOne({ email, role: { $ne: 'operator' } });
+
+    if (!user) {
+      throw createHttpError(401, 'User not found');
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      throw createHttpError(401, 'Invalid credentials');
+    }
+
+    await Session.deleteOne({ userId: user._id });
+    const newSession = await createSession(user._id);
+    setSessionCookies(res, newSession);
+
+    res.status(200).json({
+      user,
+      mustChangePassword: user.isFirstLogin,
+    });
   }
 
-  // Проверка пароля (для первого входа оператора это будет "11111")
-  const isValidPassword = await bcrypt.compare(password, user.password);
-  if (!isValidPassword) {
-    return next(createHttpError(401, 'Invalid credentials'));
-  }
-
-  if (user.role === 'operator' && user.isFirstLogin) {
-    // Можно либо сразу залогинить, либо выдать спец. статус
-  }
-
-  await Session.deleteOne({ userId: user._id });
-  const newSession = await createSession(user._id);
-  setSessionCookies(res, newSession);
-
-  res.status(200).json({
-    user,
-    mustChangePassword: user.isFirstLogin,
-  });
+  throw createHttpError(400, 'Invalid login payload');
 };
 
 export const registerOperator = async (req, res) => {
@@ -109,7 +125,7 @@ export const registerOperator = async (req, res) => {
     email,
     role = 'operator',
     personalCode,
-    lastname,
+    lastName,
     phone,
   } = req.body;
 
@@ -124,7 +140,7 @@ export const registerOperator = async (req, res) => {
     personalCode,
     password: hashedPassword, // В базе будет хэш от "11111"
     isFirstLogin: true,
-    lastname,
+    lastName,
     phone,
   });
 

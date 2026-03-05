@@ -11,4 +11,5 @@ router.post(
   celebrate(addedByManagerSchema),
   addFault,
 );
+
 export default router;
