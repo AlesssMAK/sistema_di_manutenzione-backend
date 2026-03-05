@@ -1,5 +1,4 @@
 import { Fault } from '../models/fault.js';
-import { Counter } from '../models/counter.js';
 import { PartPlant } from '../models/part.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 import { User } from '../models/user.js';
@@ -34,14 +33,6 @@ export const createFault = async (req, res) => {
       );
       imageUrl = cloudinaryResult.secure_url;
     }
-    const counter = await Counter.findOneAndUpdate(
-      { id: 'fault_id' },
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
-
-    const sequenceNumber = counter && counter.seq ? counter.seq : 0;
-    const id_fault = `FLT-${sequenceNumber.toString().padStart(3, '0')}`;
 
     // Реєстрація часу (Італія)
     // const now = new Date();
@@ -60,7 +51,7 @@ export const createFault = async (req, res) => {
     // });
 
     const newFault = await Fault.create({
-      id_fault,
+      // id_fault,
       userId,
       nameOperator: req.user?.name || 'Unknown Operator', // Защита на случай отсутствия имени
       // dataCreated,

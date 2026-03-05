@@ -17,5 +17,7 @@ router.post(
   celebrate(createFaultSchema),
   createFault,
 );
+
 router.get('/operators', ctrlWrapper(getAllOperators));
+
 export default router;
