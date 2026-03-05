@@ -8,6 +8,11 @@ const userSchema = new Schema(
       required: true,
       trim: true,
     },
+    lastName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     email: {
       type: String,
       unique: true,
@@ -17,25 +22,6 @@ const userSchema = new Schema(
     password: {
       type: String,
       required: true,
-    },
-    lastname: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    // возможно нужно добавить и страну
-    city: {
-      type: String,
-      required: false,
-      trim: true,
-      default: '',
-    },
-    phone: {
-      type: String,
-      required: [true, 'Phone number is required'],
-      unique: true,
-      trim: true,
-      match: [/^\+39\d{10}$/, 'Phone must be in format +39XXXXXXXXXX'], //для Италии
     },
     avatar: {
       type: String,
@@ -77,4 +63,5 @@ userSchema.methods.toJSON = function () {
   delete obj.password;
   return obj;
 };
+
 export const User = model('User', userSchema);

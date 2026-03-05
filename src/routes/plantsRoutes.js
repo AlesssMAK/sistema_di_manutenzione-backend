@@ -5,6 +5,7 @@ import { createPlant, getAllPlants } from '../controllers/plantController.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
+
 const router = Router();
 
 router.post(

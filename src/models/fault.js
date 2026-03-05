@@ -3,7 +3,7 @@ import { TYPE_FAULT } from '../constants/typeFault.js';
 
 const faultSchema = new Schema(
   {
-    id_fault: {
+    faultId: {
       type: String,
       required: true,
       trim: true,
@@ -18,23 +18,22 @@ const faultSchema = new Schema(
       ref: 'User',
       required: true,
     },
-    // dataCreated: {
-    //   type: String,
-    //   required: true,
-    // },
-    // timeCreated: {
-    //   type: String,
-    //   required: true,
-    //   trim: true,
-    // },
-
-    plantId: {
+    dataCreated: {
+      type: Date,
+      required: true,
+    },
+    timeCreated: {
       type: String,
+      required: true,
+      trim: true,
+    },
+    plantId: {
+      type: Schema.Types.ObjectId,
       required: true,
       ref: 'Plant',
     },
     partId: {
-      type: String,
+      type: Schema.Types.ObjectId,
       required: true,
       ref: 'PartPlant',
     },
