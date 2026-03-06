@@ -147,3 +147,17 @@ export const getAllFault = async (req, res) => {
     fault,
   });
 };
+
+export const getFaultById = async (req, res) => {
+  const { faultId } = req.params;
+
+  const fault = await Fault.findById(faultId)
+    .populate({ path: 'plantId', select: 'namePlant code' })
+    .populate({ path: 'partId', select: 'namePartPlant codePartPlant' });
+
+  if (!fault) {
+    throw createHttpError(404, 'Fault not found');
+  }
+
+  res.status(200).json(fault);
+};
