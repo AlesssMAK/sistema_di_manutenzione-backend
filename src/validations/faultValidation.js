@@ -1,5 +1,10 @@
 import { Joi, Segments } from 'celebrate';
 import { TYPE_FAULT } from '../constants/typeFault.js';
+import { isValidObjectId } from 'mongoose';
+
+const objectIdValidator = (value, helpers) => {
+  return !isValidObjectId(value) ? helpers.message('Invalid id format') : value;
+};
 
 export const createFaultSchema = {
   [Segments.BODY]: Joi.object({
@@ -8,7 +13,6 @@ export const createFaultSchema = {
       .required(),
     dataCreated: Joi.date().iso().required(), //тільки дата, без часу
     timeCreated: Joi.string().required(),
-    // plantId и partId должны быть строками (ID из базы)
     plantId: Joi.string().trim().required(),
     partId: Joi.string().trim().required(),
 
@@ -19,6 +23,26 @@ export const createFaultSchema = {
     comment: Joi.string().trim().min(5).required(),
 
     img: Joi.string().uri().allow('', null),
+  }),
+};
+
+export const getAllFaultSchema = {
+  [Segments.QUERY]: Joi.object({
+    faultId: Joi.string().trim().optional(),
+    nameOperator: Joi.string().trim().optional(),
+    plant: Joi.string().trim().optional(),
+    partPlant: Joi.string().trim().optional(),
+    typefault: Joi.string().trim().optional(),
+    dataCreated: Joi.string().trim().optional(),
+    timeCreated: Joi.string().trim().optional(),
+    page: Joi.number().integer().min(1).default(1),
+    perPage: Joi.number().integer().min(5).max(50).default(12),
+  }),
+};
+
+export const getFaultByIdSchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
   }),
 };
 
