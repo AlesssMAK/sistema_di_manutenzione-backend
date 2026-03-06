@@ -77,4 +77,73 @@ export const createFault = async (req, res) => {
   return res.status(201).json(populatedFault);
 };
 
-export const getAllFault = async (req, res) => {};
+export const getAllFault = async (req, res) => {
+  const {
+    faultId,
+    nameOperator,
+    plant,
+    partPlant,
+    typefault,
+    dataCreated,
+    timeCreated,
+    sort = 'desc',
+    page = 1,
+    perPage = 12,
+  } = req.query;
+
+  const query = {};
+
+  if (faultId) query.faultId = faultId;
+  if (nameOperator) query.nameOperator = nameOperator;
+  if (typefault) query.typefault = typefault;
+  if (dataCreated) query.dataCreated = dataCreated;
+  if (timeCreated) query.timeCreated = timeCreated;
+
+  if (plant) {
+    const plants = await Plant.find({
+      $or: [
+        { namePlant: new RegExp(plant, 'i') },
+        { code: new RegExp(plant, 'i') },
+      ],
+    });
+
+    const plantIds = plants.map((p) => p._id);
+    query.plantId = { $in: plantIds };
+  }
+
+  if (partPlant) {
+    const parts = await PartPlant.find({
+      $or: [
+        { namePartPlant: new RegExp(partPlant, 'i') },
+        { codePartPlant: new RegExp(partPlant, 'i') },
+      ],
+    });
+
+    const partIds = parts.map((p) => p._id);
+    query.partId = { $in: partIds };
+  }
+
+  const sortOption = sort === 'asc' ? 1 : -1;
+  const skip = (page - 1) * perPage;
+
+  const [totalFault, fault] = await Promise.all([
+    Fault.countDocuments(query),
+    Fault.find(query)
+      .populate({ path: 'plantId', select: 'namePlant code' })
+      .populate({ path: 'partId', select: 'namePartPlant codePartPlant' })
+      .sort({ createdAt: sortOption })
+      .skip(skip)
+      .limit(perPage)
+      .lean(),
+  ]);
+
+  const totalPage = Math.ceil(totalFault / perPage);
+
+  res.status(200).json({
+    page,
+    perPage,
+    totalFault,
+    totalPage,
+    fault,
+  });
+};

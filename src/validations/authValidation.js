@@ -18,7 +18,6 @@ export const registerUserSchema = {
           'Full name must contain at least two words and only letters',
       }),
 
-    // email тільки для НЕ операторів
     email: Joi.string().email().required(),
 
     // password тільки для НЕ операторів
