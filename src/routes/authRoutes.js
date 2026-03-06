@@ -9,6 +9,7 @@ import {
   refreshUserSession,
   loginUser,
   registerOperator,
+  logoutUser,
 } from '../controllers/authController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 import { authLimiter } from '../middleware/rateLimitAuth.js';
@@ -33,5 +34,7 @@ router.patch(
   celebrate(loginUserSchema),
   registerOperator,
 );
+
+router.post('/auth/logout', logoutUser);
 
 export default router;
