@@ -63,5 +63,11 @@ userSchema.methods.toJSON = function () {
   delete obj.password;
   return obj;
 };
+userSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+
+  delete obj.personalCode;
+  return obj;
+};
 
 export const User = model('User', userSchema);
