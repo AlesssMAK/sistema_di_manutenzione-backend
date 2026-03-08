@@ -1,4 +1,4 @@
-import { Fault } from '../models/fault.js';
+import { Fault } from '../../models/fault.js';
 
 const generateFaultId = async () => {
   const now = new Date();
