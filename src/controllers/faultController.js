@@ -3,6 +3,7 @@ import { Fault } from '../models/fault.js';
 import { Plant } from '../models/plant.js';
 import { PartPlant } from '../models/part.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
+import mongoose from 'mongoose';
 
 export const createFault = async (req, res) => {
   const {
@@ -73,6 +74,10 @@ export const createFault = async (req, res) => {
   const populatedFault = await Fault.findById(newFault._id)
     .populate({ path: 'plantId', select: 'namePlant code' })
     .populate({ path: 'partId', select: 'namePartPlant codePartPlant' });
+
+  await mongoose.connection
+    .collection('original_faults')
+    .insertOne(newFault.toObject());
 
   return res.status(201).json(populatedFault);
 };
