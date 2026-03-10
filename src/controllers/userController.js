@@ -62,10 +62,23 @@ export const updateProfile = async (req, res) => {
   });
 };
 
-export const getAllUsers = async (req, res, next) => {
+export const getAllUsers = async (req, res) => {
   const userList = await User.find();
   res.status(200).json({
     status: 'success',
     data: userList,
+  });
+};
+
+export const getUser = async (req, res) => {
+  const user = req.user;
+
+  if (!user) {
+    throw createHttpError(401, 'Not authenticated');
+  }
+
+  res.status(200).json({
+    success: true,
+    data: user,
   });
 };
