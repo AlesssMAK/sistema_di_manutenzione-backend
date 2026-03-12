@@ -25,6 +25,6 @@ router.put(
 
 router.get('/users', ctrlWrapper(getAllUsers));
 
-router.get('/user/me', authenticate, getUser);
+router.get('/users/me', authenticate, getUser);
 
 export default router;
