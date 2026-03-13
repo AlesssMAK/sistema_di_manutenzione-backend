@@ -66,7 +66,7 @@ export const getAllUsers = async (req, res) => {
   const userList = await User.find();
   res.status(200).json({
     status: 'success',
-    data: userList,
+    user: userList,
   });
 };
 
@@ -79,6 +79,6 @@ export const getUser = async (req, res) => {
 
   res.status(200).json({
     success: true,
-    data: user,
+    user: user,
   });
 };
