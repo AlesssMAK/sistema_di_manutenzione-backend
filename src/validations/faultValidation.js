@@ -1,6 +1,7 @@
 import { Joi, Segments } from 'celebrate';
 import { TYPE_FAULT } from '../constants/typeFault.js';
 import { isValidObjectId } from 'mongoose';
+import moment from 'moment';
 
 const objectIdValidator = (value, helpers) => {
   return !isValidObjectId(value) ? helpers.message('Invalid id format') : value;
@@ -51,9 +52,36 @@ export const addedByManagerSchema = {
     faultId: Joi.string().required(),
     priority: Joi.string().valid('Bassa', 'Media', 'Alta').required(),
     assignedMaintainers: Joi.array().items(Joi.string().trim()),
-    plannedDate: Joi.string().required(),
+    plannedDate: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .required()
+      .custom((value, helpers) => {
+        const today = moment().startOf('day');
+        const date = moment(value, 'YYYY-MM-DD');
+        if (!date.isValid()) return helpers.error('any.invalid');
+        if (date.isBefore(today))
+          return helpers.message('plannedDate must be today or later');
+        return value;
+      })
+      .messages({
+        'string.pattern.base': 'plannedDate must be in format YYYY-MM-DD',
+        'any.required': 'plannedDate is required',
+      }),
     plannedTime: Joi.string().required(),
-    deadline: Joi.string().required(),
+    deadline: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .required()
+      .custom((value, helpers) => {
+        const { plannedDate } = helpers.state.ancestors[0];
+        const start = moment(plannedDate, 'YYYY-MM-DD');
+        const end = moment(value, 'YYYY-MM-DD');
+        if (!end.isValid()) return helpers.error('any.invalid');
+        if (end.isBefore(start))
+          return helpers.message(
+            ' deadline must be after or equal to plannedDate',
+          );
+        return value;
+      }),
     estimatedDuration: Joi.number().min(1).required(),
     managerComment: Joi.string().allow('', null),
   }),
