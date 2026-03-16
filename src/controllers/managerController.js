@@ -1,5 +1,6 @@
 import { Fault } from '../models/fault.js';
 import { User } from '../models/user.js';
+import mongoose from 'mongoose';
 
 export const addFault = async (req, res) => {
   try {
@@ -16,6 +17,22 @@ export const addFault = async (req, res) => {
 
     const managerId = req.user?._id;
     const managerName = req.user?.name || 'Менеджер';
+
+    const maintainerObjectIds = assignedMaintainers.map((id) =>
+      mongoose.Types.ObjectId.createFromHexString(id.trim()),
+    );
+    const overlappingFault = await Fault.findOne({
+      _id: { $ne: faultId }, // Не считаем текущую задачу
+      plannedDate: plannedDate,
+      plannedTime: plannedTime,
+      assignedMaintainers: { $in: maintainerObjectIds }, // Проверка: есть ли хоть один общий ID
+    });
+
+    if (overlappingFault) {
+      return res.status(409).json({
+        message: `Один із майстрів уже зайнятий на цей час (${plannedDate} ${plannedTime})`,
+      });
+    }
 
     const workers = await User.find({
       _id: { $in: assignedMaintainers },
