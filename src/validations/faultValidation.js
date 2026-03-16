@@ -36,8 +36,22 @@ export const getAllFaultSchema = {
     typefault: Joi.string().trim().optional(),
     dataCreated: Joi.string().trim().optional(),
     timeCreated: Joi.string().trim().optional(),
+    priority: Joi.string().valid('Bassa', 'Media', 'Alta').optional(),
     page: Joi.number().integer().min(1).default(1),
     perPage: Joi.number().integer().min(5).max(50).default(12),
+    sortBy: Joi.string().valid(
+      'faultId',
+      'nameOperator',
+      'userId',
+      'dataCreated',
+      'plantId',
+      'partId',
+      'typefault',
+      'priority',
+      'deadline',
+      'plannedDate',
+    ),
+    sortOrder: Joi.string().valid('asc', 'desc').default('asc'),
   }),
 };
 
