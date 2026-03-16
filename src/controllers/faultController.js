@@ -86,18 +86,23 @@ export const getAllFault = async (req, res) => {
   const {
     faultId,
     nameOperator,
+    priority,
     plant,
     partPlant,
     typefault,
     dataCreated,
     timeCreated,
     sort = 'desc',
+    sortBy = 'dataCreated',
+    sortOrder = 'asc',
     page = 1,
     perPage = 12,
   } = req.query;
 
   const query = {};
 
+  //фільтрація
+  if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
   if (typefault) query.typefault = typefault;
@@ -139,6 +144,7 @@ export const getAllFault = async (req, res) => {
       .sort({ createdAt: sortOption })
       .skip(skip)
       .limit(perPage)
+      .sort({ [sortBy]: sortOrder })
       .lean(),
   ]);
 
