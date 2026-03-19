@@ -2,6 +2,7 @@ import { Joi, Segments } from 'celebrate';
 import { TYPE_FAULT } from '../constants/typeFault.js';
 import { isValidObjectId } from 'mongoose';
 import moment from 'moment';
+import { STATUS_FAULT } from '../constants/statusFault.js';
 
 const objectIdValidator = (value, helpers) => {
   return !isValidObjectId(value) ? helpers.message('Invalid id format') : value;
@@ -109,5 +110,16 @@ export const addedByManagerSchema = {
       }),
     estimatedDuration: Joi.number().min(1).required(),
     managerComment: Joi.string().allow('', null),
+  }),
+};
+
+export const addFaultByMaintenanceWorkerSchema = {
+  [Segments.BODY]: Joi.object({
+    faultId: Joi.string().required(),
+    statusfault: Joi.string()
+      .valid(...Object.values(STATUS_FAULT))
+      .default(STATUS_FAULT.CREATED)
+      .required(),
+    commentMaintenanceWorker: Joi.string().optional(),
   }),
 };

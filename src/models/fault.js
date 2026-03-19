@@ -1,5 +1,6 @@
 import { model, Schema } from 'mongoose';
 import { TYPE_FAULT } from '../constants/typeFault.js';
+import { STATUS_FAULT } from '../constants/statusFault.js';
 
 const faultSchema = new Schema(
   {
@@ -43,6 +44,13 @@ const faultSchema = new Schema(
       required: true,
       default: TYPE_FAULT.PRODUZIONE,
     },
+
+    statusfault: {
+      type: String,
+      enum: Object.values(STATUS_FAULT),
+      required: true,
+      default: STATUS_FAULT.CREATED,
+    },
     comment: {
       type: String,
       required: true,
@@ -82,6 +90,10 @@ const faultSchema = new Schema(
     managerId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
+    },
+    commentMaintenanceWorker: {
+      type: String,
+      trim: true,
     },
     history: [
       {
