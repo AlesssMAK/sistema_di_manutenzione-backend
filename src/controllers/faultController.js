@@ -92,6 +92,7 @@ export const getAllFault = async (req, res) => {
     typefault,
     dataCreated,
     timeCreated,
+    deadline,
     sort = 'desc',
     sortBy = 'dataCreated',
     sortOrder = 'asc',
@@ -102,6 +103,7 @@ export const getAllFault = async (req, res) => {
   const query = {};
 
   //фільтрація
+  if (deadline) query.deadline = deadline;
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
