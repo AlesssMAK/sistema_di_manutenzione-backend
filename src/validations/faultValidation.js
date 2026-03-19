@@ -12,7 +12,17 @@ export const createFaultSchema = {
     faultId: Joi.string()
       .pattern(/^SEG-\d{4}-\d{2}-\d{3}$/)
       .required(),
-    dataCreated: Joi.date().iso().required(), //тільки дата, без часу
+    dataCreated: Joi.date()
+      .iso()
+      .required()
+      .custom((value, helpers) => {
+        const today = moment().startOf('day');
+        const date = moment(value, 'YYYY-MM-DD');
+        if (!date.isValid()) return helpers.error('any.invalid');
+        if (date.isBefore(today))
+          return helpers.message('plannedDate must be today or later');
+        return value;
+      }), //тільки дата, без часу
     timeCreated: Joi.string().required(),
     plantId: Joi.string().trim().required(),
     partId: Joi.string().trim().required(),
