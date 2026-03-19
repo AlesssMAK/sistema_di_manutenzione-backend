@@ -10,3 +10,5 @@ export const getAllMaintenanceWorker = async (req, res) => {
     data: maintenanceWorker,
   });
 };
+
+export const addFaultByMaintenanceWorker = async (req, res) => {};

@@ -91,6 +91,10 @@ const faultSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
     },
+    commentMaintenanceWorker: {
+      type: String,
+      trim: true,
+    },
     history: [
       {
         action: { type: String, required: true }, // 'created', 'updated'
