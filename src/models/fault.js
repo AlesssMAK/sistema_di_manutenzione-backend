@@ -1,6 +1,7 @@
 import { model, Schema } from 'mongoose';
 import { TYPE_FAULT } from '../constants/typeFault.js';
 import { STATUS_FAULT } from '../constants/statusFault.js';
+import { TYPE_PRIORITY } from '../constants/typePriority.js';
 
 const faultSchema = new Schema(
   {
@@ -42,7 +43,7 @@ const faultSchema = new Schema(
       type: String,
       enum: Object.values(TYPE_FAULT),
       required: true,
-      default: TYPE_FAULT.PRODUZIONE,
+      default: TYPE_FAULT.PRODUCTION,
     },
 
     statusfault: {
@@ -61,8 +62,8 @@ const faultSchema = new Schema(
     },
     priority: {
       type: String,
-      enum: ['Bassa', 'Media', 'Alta'], // Низкая, Средняя, Высокая
-      default: 'Media',
+      enum: Object.values(TYPE_PRIORITY),
+      default: TYPE_PRIORITY.MEDIUM,
     },
     assignedMaintainers: [
       {

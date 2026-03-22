@@ -1,4 +1,4 @@
 export const TYPE_FAULT = {
-  PRODUZIONE: 'Produzione', // виробництво
-  SICUREZZE: 'Sicurezze', // безпека
+  PRODUCTION: 'Production', // виробництво
+  SAFETY: 'Safety', // безпека
 };

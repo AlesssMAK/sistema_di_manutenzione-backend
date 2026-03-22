@@ -15,17 +15,17 @@ import {
 
 const router = Router();
 
-router.use('/fault', authenticate);
+router.use('/faults', authenticate);
 
 router.post(
-  '/fault',
+  '/faults',
   upload.single('img'),
   celebrate(createFaultSchema),
   createFault,
 );
 
-router.get('/fault', celebrate(getAllFaultSchema), getAllFault);
+router.get('/faults', celebrate(getAllFaultSchema), getAllFault);
 
-router.get('/fault/:faultId', celebrate(getFaultByIdSchema), getFaultById);
+router.get('/faults/:faultId', celebrate(getFaultByIdSchema), getFaultById);
 
 export default router;
