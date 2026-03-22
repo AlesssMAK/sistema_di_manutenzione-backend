@@ -97,7 +97,7 @@ export const getAllFault = async (req, res) => {
     sortBy = 'dataCreated',
     sortOrder = 'asc',
     page = 1,
-    perPage = 12,
+    perPage = 2,
   } = req.query;
 
   const query = {};
