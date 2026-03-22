@@ -3,6 +3,7 @@ import { TYPE_FAULT } from '../constants/typeFault.js';
 import { isValidObjectId } from 'mongoose';
 import moment from 'moment';
 import { STATUS_FAULT } from '../constants/statusFault.js';
+import { TYPE_PRIORITY } from '../constants/typePriority.js';
 
 const objectIdValidator = (value, helpers) => {
   return !isValidObjectId(value) ? helpers.message('Invalid id format') : value;
@@ -30,7 +31,7 @@ export const createFaultSchema = {
 
     typefault: Joi.string()
       .valid(...Object.values(TYPE_FAULT))
-      .default(TYPE_FAULT.PRODUZIONE),
+      .default(TYPE_FAULT.PRODUCTION),
 
     comment: Joi.string().trim().min(5).required(),
 
@@ -48,7 +49,9 @@ export const getAllFaultSchema = {
     dataCreated: Joi.string().trim().optional(),
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
-    priority: Joi.string().valid('Bassa', 'Media', 'Alta').optional(),
+    priority: Joi.string()
+      .valid(...Object.values(TYPE_PRIORITY))
+      .optional(),
     page: Joi.number().integer().min(1).default(1),
     perPage: Joi.number().integer().min(5).max(50).default(12),
     sortBy: Joi.string().valid(
