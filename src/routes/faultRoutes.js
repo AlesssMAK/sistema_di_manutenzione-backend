@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { celebrate } from 'celebrate';
-import { authenticate } from '../middleware/authenticate.js';
+// import { authenticate } from '../middleware/authenticate.js';
 import {
   createFaultSchema,
   getAllFaultSchema,
@@ -15,7 +15,7 @@ import {
 
 const router = Router();
 
-router.use('/faults', authenticate);
+// router.use('/faults', authenticate);
 
 router.post(
   '/faults',

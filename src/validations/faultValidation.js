@@ -79,7 +79,7 @@ export const getFaultByIdSchema = {
 export const addedByManagerSchema = {
   [Segments.BODY]: Joi.object({
     faultId: Joi.string().required(),
-    priority: Joi.string().valid('Bassa', 'Media', 'Alta').required(),
+    priority: Joi.string().valid('Low', 'Medium', 'High').required(),
     assignedMaintainers: Joi.array().items(Joi.string().trim()),
     plannedDate: Joi.string()
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
@@ -113,6 +113,9 @@ export const addedByManagerSchema = {
       }),
     estimatedDuration: Joi.number().min(1).required(),
     managerComment: Joi.string().allow('', null),
+    typefault: Joi.string()
+      .valid(...Object.values(TYPE_FAULT))
+      .required(),
   }),
 };
 

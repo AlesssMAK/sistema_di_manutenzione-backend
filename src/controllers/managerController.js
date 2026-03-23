@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 export const addFault = async (req, res) => {
   try {
     const {
-      faultId,
+      faultId: documentId,
       priority,
       assignedMaintainers,
       plannedDate,
@@ -22,10 +22,10 @@ export const addFault = async (req, res) => {
       mongoose.Types.ObjectId.createFromHexString(id.trim()),
     );
     const overlappingFault = await Fault.findOne({
-      _id: { $ne: faultId }, // Не считаем текущую задачу
+      _id: { $ne: documentId },
       plannedDate: plannedDate,
       plannedTime: plannedTime,
-      assignedMaintainers: { $in: maintainerObjectIds }, // Проверка: есть ли хоть один общий ID
+      assignedMaintainers: { $in: maintainerObjectIds },
     });
 
     if (overlappingFault) {
@@ -45,7 +45,7 @@ export const addFault = async (req, res) => {
       });
     }
 
-    const fault = await Fault.findById(faultId);
+    const fault = await Fault.findById(documentId);
 
     if (!fault) {
       return res.status(404).json({ message: 'Несправність не знайдена' });
