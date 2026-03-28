@@ -1,9 +1,9 @@
 import { Joi, Segments } from 'celebrate';
-export const createPartPlantSchema = {
+export const createPlantPartSchema = {
   [Segments.BODY]: Joi.object({
     plantId: Joi.string().trim().min(4).required(),
-    namePartPlant: Joi.string().trim().min(4).required(),
-    codePartPlant: Joi.string().trim().min(4).required(),
+    namePlantPart: Joi.string().trim().min(4).required(),
+    codePlantPart: Joi.string().trim().min(4).required(),
   }),
 };
 export const getPartsSchema = {
