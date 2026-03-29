@@ -1,36 +1,36 @@
-import { PartPlant } from '../models/part.js';
+import { PlantPart } from '../models/part.js';
 import createHttpError from 'http-errors';
 import { Plant } from '../models/plant.js';
-export const createPartPlant = async (req, res, next) => {
+export const createPlantPart = async (req, res, next) => {
   try {
-    const { plantId, namePartPlant, codePartPlant, location, description } =
+    const { plantId, namePlantPart, codePlantPart, location, description } =
       req.body;
-    const existingPartPlant = await PartPlant.findOne({
-      $or: [{ namePartPlant }, { codePartPlant }],
+    const existingPlantPart = await PlantPart.findOne({
+      $or: [{ namePlantPart }, { codePlantPart }],
     });
 
-    if (existingPartPlant) {
-      throw createHttpError(409, 'A PartPlant with this name already exists');
+    if (existingPlantPart) {
+      throw createHttpError(409, 'A PlantPart with this name already exists');
     }
 
-    const newPartPlant = await PartPlant.create({
+    const newPlantPart = await PlantPart.create({
       plantId,
-      namePartPlant,
-      codePartPlant,
+      namePlantPart,
+      codePlantPart,
       location,
       description,
     });
 
     res.status(201).json({
       success: true,
-      message: 'PartPlant created successfully',
-      data: newPartPlant,
+      message: 'PlantPart created successfully',
+      data: newPlantPart,
     });
   } catch (error) {
     next(error);
   }
 };
-export const getAllPartPlants = async (req, res) => {
+export const getAllPlantParts = async (req, res) => {
   const { plantId } = req.params;
 
   const isPlantExist = await Plant.exists({ _id: plantId });
@@ -52,9 +52,9 @@ export const getAllPartPlants = async (req, res) => {
     filter.$text = { $search: req.query.search };
   }
 
-  const [totalItems, partPlants] = await Promise.all([
-    PartPlant.countDocuments(filter),
-    PartPlant.find(filter).skip(skip).limit(perPage),
+  const [totalItems, plantParts] = await Promise.all([
+    PlantPart.countDocuments(filter),
+    PlantPart.find(filter).skip(skip).limit(perPage),
   ]);
 
   const totalPages = Math.ceil(totalItems / perPage);
@@ -63,7 +63,7 @@ export const getAllPartPlants = async (req, res) => {
     success: true,
     message: 'Get parts for plant ${plantId}',
     data: {
-      partPlants,
+      plantParts,
       pagination: {
         page,
         perPage,

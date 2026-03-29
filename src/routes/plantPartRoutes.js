@@ -1,27 +1,27 @@
 import { Router } from 'express';
 import {
-  createPartPlantSchema,
+  createPlantPartSchema,
   getPartsSchema,
-} from '../validations/partplantValidation.js';
+} from '../validations/plantPartValidation.js';
 import { celebrate } from 'celebrate';
 import { authenticate } from '../middleware/authenticate.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import {
-  createPartPlant,
-  getAllPartPlants,
-} from '../controllers/partPlantController.js';
+  createPlantPart,
+  getAllPlantParts,
+} from '../controllers/plantPartController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 const router = Router();
 router.post(
   '/plants/parts',
   authenticate,
   requireAdmin,
-  celebrate(createPartPlantSchema),
-  createPartPlant,
+  celebrate(createPlantPartSchema),
+  createPlantPart,
 );
 router.get(
   '/:plantId/parts',
   celebrate(getPartsSchema),
-  ctrlWrapper(getAllPartPlants),
+  ctrlWrapper(getAllPlantParts),
 );
 export default router;

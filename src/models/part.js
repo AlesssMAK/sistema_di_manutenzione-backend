@@ -1,22 +1,22 @@
 import { Schema } from 'mongoose';
 import { model } from 'mongoose';
 
-const partPlantSchema = new Schema(
+const plantPartSchema = new Schema(
   {
     plantId: { type: Schema.Types.ObjectId, ref: 'Plant', required: true },
-    namePartPlant: { type: String, required: true },
-    codePartPlant: { type: String, required: true },
+    namePlantPart: { type: String, required: true },
+    codePlantPart: { type: String, required: true },
   },
   {
     timestamps: true,
   },
 );
-partPlantSchema.index(
+plantPartSchema.index(
   {
-    namePartPlant: 'text',
+    namePlantPart: 'text',
     description: 'text',
   },
-  { namePartPlant: 'PartPlantTextIndex' },
+  { namePlantPart: 'PlantPartTextIndex' },
 );
 
-export const PartPlant = model('PartPlant', partPlantSchema);
+export const PlantPart = model('PlantPart', plantPartSchema);

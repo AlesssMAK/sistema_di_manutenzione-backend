@@ -1,9 +1,9 @@
 import createHttpError from 'http-errors';
 import { Fault } from '../models/fault.js';
 import { Plant } from '../models/plant.js';
-import { PartPlant } from '../models/part.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 import mongoose from 'mongoose';
+import { PlantPart } from '../models/part.js';
 
 export const createFault = async (req, res) => {
   const {
@@ -32,7 +32,7 @@ export const createFault = async (req, res) => {
     throw createHttpError(400, 'Plant not found');
   }
 
-  const part = await PartPlant.findById(partId);
+  const part = await PlantPart.findById(partId);
   if (!part) {
     throw createHttpError(400, 'Part of plant not found');
   }
@@ -53,7 +53,7 @@ export const createFault = async (req, res) => {
   const newFault = await Fault.create({
     faultId,
     userId,
-    nameOperator: req.user?.fullName || 'Unknown Operator', // Защита на случай отсутствия имени
+    nameOperator: req.user?.fullName || 'Unknown Operator',
     dataCreated,
     timeCreated,
     plantId,
@@ -73,7 +73,7 @@ export const createFault = async (req, res) => {
 
   const populatedFault = await Fault.findById(newFault._id)
     .populate({ path: 'plantId', select: 'namePlant code' })
-    .populate({ path: 'partId', select: 'namePartPlant codePartPlant' });
+    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' });
 
   await mongoose.connection
     .collection('original_faults')
@@ -88,7 +88,7 @@ export const getAllFault = async (req, res) => {
     nameOperator,
     priority,
     plant,
-    partPlant,
+    plantPart,
     typefault,
     dataCreated,
     timeCreated,
@@ -123,11 +123,11 @@ export const getAllFault = async (req, res) => {
     query.plantId = { $in: plantIds };
   }
 
-  if (partPlant) {
-    const parts = await PartPlant.find({
+  if (plantPart) {
+    const parts = await PlantPart.find({
       $or: [
-        { namePartPlant: new RegExp(partPlant, 'i') },
-        { codePartPlant: new RegExp(partPlant, 'i') },
+        { namePlantPart: new RegExp(plantPart, 'i') },
+        { codePlantPart: new RegExp(plantPart, 'i') },
       ],
     });
 
@@ -142,7 +142,7 @@ export const getAllFault = async (req, res) => {
     Fault.countDocuments(query),
     Fault.find(query)
       .populate({ path: 'plantId', select: 'namePlant code' })
-      .populate({ path: 'partId', select: 'namePartPlant codePartPlant' })
+      .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
       .sort({ createdAt: sortOption })
       .skip(skip)
       .limit(perPage)
@@ -166,7 +166,7 @@ export const getFaultById = async (req, res) => {
 
   const fault = await Fault.findById(faultId)
     .populate({ path: 'plantId', select: 'namePlant code' })
-    .populate({ path: 'partId', select: 'namePartPlant codePartPlant' });
+    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' });
 
   if (!fault) {
     throw createHttpError(404, 'Fault not found');
