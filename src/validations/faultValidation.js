@@ -44,7 +44,7 @@ export const getAllFaultSchema = {
     faultId: Joi.string().trim().optional(),
     nameOperator: Joi.string().trim().optional(),
     plant: Joi.string().trim().optional(),
-    partPlant: Joi.string().trim().optional(),
+    plantPart: Joi.string().trim().optional(),
     typefault: Joi.string().trim().optional(),
     dataCreated: Joi.string().trim().optional(),
     timeCreated: Joi.string().trim().optional(),
