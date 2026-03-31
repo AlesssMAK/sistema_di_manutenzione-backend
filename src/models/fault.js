@@ -37,7 +37,7 @@ const faultSchema = new Schema(
     partId: {
       type: Schema.Types.ObjectId,
       required: true,
-      ref: 'PartPlant',
+      ref: 'PlantPart',
     },
     typefault: {
       type: String,
