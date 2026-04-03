@@ -6,11 +6,11 @@ export const createPlantPart = async (req, res, next) => {
     const { plantId, namePlantPart, codePlantPart, location, description } =
       req.body;
     const existingPlantPart = await PlantPart.findOne({
-      $or: [{ namePlantPart }, { codePlantPart }],
+      $or: [{ codePlantPart }],
     });
 
     if (existingPlantPart) {
-      throw createHttpError(409, 'A PlantPart with this name already exists');
+      throw createHttpError(409, 'A plant part with this code already exists.');
     }
 
     const newPlantPart = await PlantPart.create({
@@ -30,6 +30,7 @@ export const createPlantPart = async (req, res, next) => {
     next(error);
   }
 };
+
 export const getAllPlantParts = async (req, res) => {
   const { plantId } = req.params;
 

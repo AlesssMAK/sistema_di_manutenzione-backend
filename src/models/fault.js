@@ -39,14 +39,14 @@ const faultSchema = new Schema(
       required: true,
       ref: 'PlantPart',
     },
-    typefault: {
+    typeFault: {
       type: String,
       enum: Object.values(TYPE_FAULT),
       required: true,
       default: TYPE_FAULT.PRODUCTION,
     },
 
-    statusfault: {
+    statusFault: {
       type: String,
       enum: Object.values(STATUS_FAULT),
       required: true,
@@ -57,8 +57,9 @@ const faultSchema = new Schema(
       required: true,
     },
     img: {
-      type: String,
+      type: [String],
       required: false,
+      default: [],
     },
     priority: {
       type: String,
