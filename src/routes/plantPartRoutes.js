@@ -19,8 +19,9 @@ router.post(
   celebrate(createPlantPartSchema),
   createPlantPart,
 );
+
 router.get(
-  '/:plantId/parts',
+  '/plants/:plantId/parts',
   celebrate(getPartsSchema),
   ctrlWrapper(getAllPlantParts),
 );

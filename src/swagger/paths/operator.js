@@ -23,7 +23,7 @@
  *             required:
  *               - plantId
  *               - partId
- *               - typefault
+ *               - typeFault
  *               - comment
  *             properties:
  *               plantId:
@@ -34,7 +34,7 @@
  *                 type: string
  *                 description: ID конкретної деталі (PartPlant)
  *                 example: "64b1f5..."
- *               typefault:
+ *               typeFault:
  *                 type: string
  *                 enum: [Produzione, Qualità, Manutenzione, Sicurezza]
  *                 description: Тип несправності (з констант TYPE_FAULT)

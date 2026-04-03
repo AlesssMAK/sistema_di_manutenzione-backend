@@ -12,7 +12,7 @@ export const createFault = async (req, res) => {
     timeCreated,
     plantId,
     partId,
-    typefault,
+    typeFault,
     comment,
   } = req.body;
 
@@ -41,13 +41,16 @@ export const createFault = async (req, res) => {
     throw createHttpError(400, 'This part does not belong to this plant');
   }
 
-  let imageUrl = null;
-  if (req.file) {
-    const cloudinaryResult = await saveFileToCloudinary(
-      req.file.buffer,
-      'faults',
-    );
-    imageUrl = cloudinaryResult.secure_url;
+  let imageUrls = [];
+
+  if (req.files && req.files.length > 0) {
+    for (const file of req.files) {
+      const cloudinaryResult = await saveFileToCloudinary(
+        file.buffer,
+        'faults',
+      );
+      imageUrls.push(cloudinaryResult.secure_url);
+    }
   }
 
   const newFault = await Fault.create({
@@ -58,9 +61,9 @@ export const createFault = async (req, res) => {
     timeCreated,
     plantId,
     partId,
-    typefault,
+    typeFault,
     comment,
-    img: imageUrl,
+    img: imageUrls,
     history: [
       {
         action: 'created',
@@ -89,7 +92,7 @@ export const getAllFault = async (req, res) => {
     priority,
     plant,
     plantPart,
-    typefault,
+    typeFault,
     dataCreated,
     timeCreated,
     deadline,
@@ -107,7 +110,7 @@ export const getAllFault = async (req, res) => {
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
-  if (typefault) query.typefault = typefault;
+  if (typeFault) query.typeFault = typeFault;
   if (dataCreated) query.dataCreated = dataCreated;
   if (timeCreated) query.timeCreated = timeCreated;
 

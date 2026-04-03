@@ -174,7 +174,7 @@
  *           type: string
  *           description: ID деталі обладнання (PartPlant)
  *           example: "64b1f5..."
- *         typefault:
+ *         typeFault:
  *           type: string
  *           enum: [Produzione, Qualità, Manutenzione, Sicurezza]
  *           description: Тип несправності

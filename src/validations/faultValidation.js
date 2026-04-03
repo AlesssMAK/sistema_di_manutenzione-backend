@@ -29,13 +29,35 @@ export const createFaultSchema = {
     plantId: Joi.string().trim().required(),
     partId: Joi.string().trim().required(),
 
-    typefault: Joi.string()
+    typeFault: Joi.string()
       .valid(...Object.values(TYPE_FAULT))
       .default(TYPE_FAULT.PRODUCTION),
 
     comment: Joi.string().trim().min(5).required(),
 
-    img: Joi.string().uri().allow('', null),
+    img: Joi.array()
+      .items(
+        Joi.object({
+          originalname: Joi.string().required(),
+          mimetype: Joi.string()
+            .valid(
+              'image/jpeg',
+              'image/png',
+              'image/webp',
+              'image/jpg',
+              'image/bmp',
+            )
+            .required(),
+          size: Joi.number()
+            .max(5 * 1024 * 1024)
+            .required(),
+        }),
+      )
+      .optional()
+      .default([])
+      .messages({
+        'array.base': 'Images must be an array',
+      }),
   }),
 };
 
@@ -44,8 +66,8 @@ export const getAllFaultSchema = {
     faultId: Joi.string().trim().optional(),
     nameOperator: Joi.string().trim().optional(),
     plant: Joi.string().trim().optional(),
-    plantPart: Joi.string().trim().optional(),
-    typefault: Joi.string().trim().optional(),
+    partPlant: Joi.string().trim().optional(),
+    typeFault: Joi.string().trim().optional(),
     dataCreated: Joi.string().trim().optional(),
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
@@ -53,7 +75,7 @@ export const getAllFaultSchema = {
       .valid(...Object.values(TYPE_PRIORITY))
       .optional(),
     page: Joi.number().integer().min(1).default(1),
-    perPage: Joi.number().integer().min(2).max(50).default(12),
+    perPage: Joi.number().integer().min(5).max(50).default(12),
     sortBy: Joi.string().valid(
       'faultId',
       'nameOperator',
@@ -61,7 +83,7 @@ export const getAllFaultSchema = {
       'dataCreated',
       'plantId',
       'partId',
-      'typefault',
+      'typeFault',
       'priority',
       'deadline',
       'plannedDate',
@@ -79,7 +101,7 @@ export const getFaultByIdSchema = {
 export const addedByManagerSchema = {
   [Segments.BODY]: Joi.object({
     faultId: Joi.string().required(),
-    priority: Joi.string().valid('Low', 'Medium', 'High').required(),
+    priority: Joi.string().valid('Bassa', 'Media', 'Alta').required(),
     assignedMaintainers: Joi.array().items(Joi.string().trim()),
     plannedDate: Joi.string()
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
@@ -113,16 +135,13 @@ export const addedByManagerSchema = {
       }),
     estimatedDuration: Joi.number().min(1).required(),
     managerComment: Joi.string().allow('', null),
-    typefault: Joi.string()
-      .valid(...Object.values(TYPE_FAULT))
-      .required(),
   }),
 };
 
 export const addFaultByMaintenanceWorkerSchema = {
   [Segments.BODY]: Joi.object({
     faultId: Joi.string().required(),
-    statusfault: Joi.string()
+    statusFault: Joi.string()
       .valid(...Object.values(STATUS_FAULT))
       .default(STATUS_FAULT.CREATED)
       .required(),

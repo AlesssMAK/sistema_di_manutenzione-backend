@@ -19,7 +19,7 @@ router.use('/faults', authenticate);
 
 router.post(
   '/faults',
-  upload.single('img'),
+  upload.array('img', 5),
   celebrate(createFaultSchema),
   createFault,
 );
