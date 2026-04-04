@@ -75,7 +75,7 @@ export const getAllFaultSchema = {
       .valid(...Object.values(TYPE_PRIORITY))
       .optional(),
     page: Joi.number().integer().min(1).default(1),
-    perPage: Joi.number().integer().min(5).max(50).default(12),
+    perPage: Joi.number().integer().min(1).max(50).default(2),
     sortBy: Joi.string().valid(
       'faultId',
       'nameOperator',
