@@ -101,7 +101,9 @@ export const getFaultByIdSchema = {
 export const addedByManagerSchema = {
   [Segments.BODY]: Joi.object({
     faultId: Joi.string().required(),
-    priority: Joi.string().valid('Bassa', 'Media', 'Alta').required(),
+    priority: Joi.string()
+      .valid(...Object.values(TYPE_PRIORITY))
+      .optional(),
     assignedMaintainers: Joi.array().items(Joi.string().trim()),
     plannedDate: Joi.string()
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
@@ -119,6 +121,9 @@ export const addedByManagerSchema = {
         'any.required': 'plannedDate is required',
       }),
     plannedTime: Joi.string().required(),
+    typeFault: Joi.string()
+      .valid(...Object.values(TYPE_FAULT))
+      .default(TYPE_FAULT.PRODUCTION),
     deadline: Joi.string()
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
       .required()
