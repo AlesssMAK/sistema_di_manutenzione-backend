@@ -9,6 +9,14 @@ export const updateProfile = async (req, res) => {
     throw createHttpError(404, 'User not found');
   }
 
+  if (
+    req.user._id.toString() === req.params.userId &&
+    req.body.role &&
+    req.body.role !== 'admin'
+  ) {
+    throw createHttpError(403, 'Admin cannot remove own admin role');
+  }
+
   const allowedUpdates = [
     'role',
     'fullName',
@@ -22,12 +30,51 @@ export const updateProfile = async (req, res) => {
   const updates = {};
 
   for (const key of allowedUpdates) {
-    if (req.body[key] !== undefined) {
-      if (key === 'password') {
-        updates[key] = await bcrypt.hash(req.body[key], 10);
-      } else {
-        updates[key] = req.body[key];
-      }
+    const value = req.body[key];
+
+    if (value === undefined || value === null || value === '') continue;
+
+    if (key === 'password') {
+      updates[key] = await bcrypt.hash(value, 10);
+    } else {
+      updates[key] = value;
+    }
+  }
+
+  const finalRole = updates.role ?? targetUser.role;
+  const roleChanged = updates.role && updates.role !== targetUser.role;
+
+  if (roleChanged) {
+    if (finalRole === 'operator' && !updates.personalCode) {
+      throw createHttpError(
+        400,
+        'Personal code is required when assigning operator role',
+      );
+    }
+
+    if (
+      targetUser.role === 'operator' &&
+      finalRole !== 'operator' &&
+      !updates.password
+    ) {
+      throw createHttpError(
+        400,
+        'Password is required when changing role from operator',
+      );
+    }
+  }
+
+  if (finalRole !== 'operator') {
+    delete updates.personalCode;
+    if (targetUser.role === 'operator' && roleChanged) {
+      updates.personalCode = null;
+    }
+  }
+
+  if (finalRole === 'operator') {
+    delete updates.password;
+    if (targetUser.role !== 'operator' && roleChanged) {
+      updates.password = null;
     }
   }
 
@@ -38,27 +85,24 @@ export const updateProfile = async (req, res) => {
     );
   }
 
-  if (
-    req.user._id.toString() === req.params.userId &&
-    updates.role &&
-    updates.role !== 'admin'
-  ) {
-    throw createHttpError(400, 'Admin cannot remove own admin role');
+  let updatedUser;
+  try {
+    Object.assign(targetUser, updates);
+    updatedUser = await targetUser.save();
+  } catch (err) {
+    if (err.code === 11000) {
+      throw createHttpError(409, 'Email already in use');
+    }
+    throw err;
   }
 
-  if (targetUser.role !== 'operator') {
-    delete updates.personalCode;
-  }
-
-  const updatedUser = await User.findByIdAndUpdate(req.params.userId, updates, {
-    new: true,
-    runValidators: true,
-  });
+  const { password: _password, ...userWithoutPassword } =
+    updatedUser.toObject();
 
   res.status(200).json({
     success: true,
-    message: 'User updated by admin successfully',
-    data: updatedUser,
+    message: 'User updated successfully',
+    data: userWithoutPassword,
   });
 };
 

@@ -10,7 +10,14 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
     rules: {
       semi: 'error',
-      'no-unused-vars': ['error', { args: 'none' }],
+      'no-unused-vars': [
+        'error',
+        {
+          args: 'none',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'no-undef': 'error',
     },
   },

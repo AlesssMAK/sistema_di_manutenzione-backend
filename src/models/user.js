@@ -24,6 +24,8 @@ const userSchema = new Schema(
     password: {
       type: String,
       required: function () {
+        console.log('password validator this:', this);
+        console.log('password validator this.role:', this.role);
         return this.role !== 'operator';
       },
     },
