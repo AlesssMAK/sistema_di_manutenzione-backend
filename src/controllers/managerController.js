@@ -13,6 +13,7 @@ export const addFault = async (req, res) => {
       deadline,
       estimatedDuration,
       managerComment,
+      typeFault,
     } = req.body;
 
     const managerId = req.user?._id;
@@ -60,6 +61,7 @@ export const addFault = async (req, res) => {
       estimatedDuration,
       managerComment,
       managerId,
+      typeFault,
     };
 
     fault.history.push({
