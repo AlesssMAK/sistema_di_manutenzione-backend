@@ -24,7 +24,6 @@ export const addFaultByMaintenanceWorker = async (req, res) => {
     }
 
     const updateData = {
-      faultId,
       statusfault,
       commentMaintenanceWorker,
       maintenanceWorkerId,
