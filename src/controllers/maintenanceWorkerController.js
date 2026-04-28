@@ -14,7 +14,7 @@ export const getAllMaintenanceWorker = async (req, res) => {
 
 export const addFaultByMaintenanceWorker = async (req, res) => {
   try {
-    const { faultId, statusfault, commentMaintenanceWorker } = req.body;
+    const { faultId, statusFault, commentMaintenanceWorker } = req.body;
     const maintenanceWorkerId = req.user?._id;
     const maintenanceWorkerName = req.user?.name || 'Монтер';
     const fault = await Fault.findById(faultId);
@@ -24,7 +24,8 @@ export const addFaultByMaintenanceWorker = async (req, res) => {
     }
 
     const updateData = {
-      statusfault,
+      faultId,
+      statusFault,
       commentMaintenanceWorker,
       maintenanceWorkerId,
     };
