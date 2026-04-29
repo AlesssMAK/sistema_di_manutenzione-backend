@@ -27,7 +27,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger/swaggerConfig.js';
 
 const app = express();
-const PORT = process.env.PORT || 3030;
+const PORT = process.env.PORT || 3040;
 
 // ADMIN
 const isProd = process.env.NODE_ENV === 'production';

@@ -107,10 +107,35 @@ export const updateProfile = async (req, res) => {
 };
 
 export const getAllUsers = async (req, res) => {
-  const userList = await User.find();
+  const { search, role, status, page = 1, perPage = 10 } = req.query;
+
+  const skip = (page - 1) * perPage;
+  const usersQuery = User.find();
+
+  if (role) {
+    usersQuery.where('role').equals(role);
+  }
+
+  if (status) {
+    usersQuery.where('status').equals(status);
+  }
+
+  if (search) {
+    usersQuery.where({
+      $text: { $search: search },
+    });
+  }
+
+  const [totalUsers, users] = await Promise.all([
+    usersQuery.clone().countDocuments(),
+    usersQuery.skip(skip).limit(perPage),
+  ]);
+
+  const totalPages = Math.ceil(totalUsers / perPage);
+
   res.status(200).json({
     status: 'success',
-    users: userList,
+    users: { page, perPage, totalUsers, totalPages, users },
   });
 };
 
