@@ -105,10 +105,6 @@ export const getAllFault = async (req, res) => {
 
   const query = {};
 
-  console.log('priority is:');
-  console.log(priority);
-
-  //фільтрація
   if (deadline) query.deadline = deadline;
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
