@@ -83,6 +83,10 @@ export const loginUser = async (req, res, next) => {
       throw createHttpError(401, 'Operator not found');
     }
 
+    if (user.status === 'deactivated') {
+      return res.status(403).json({ message: 'User is deactivated' });
+    }
+
     await Session.deleteOne({ userId: user._id });
     const newSession = await createSession(user._id);
     setSessionCookies(res, newSession);
@@ -99,6 +103,10 @@ export const loginUser = async (req, res, next) => {
 
     if (!user) {
       throw createHttpError(401, 'User not found');
+    }
+
+    if (user.status === 'deactivated') {
+      return res.status(403).json({ message: 'User is deactivated' });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
