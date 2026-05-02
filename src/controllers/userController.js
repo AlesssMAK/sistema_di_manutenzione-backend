@@ -122,7 +122,7 @@ export const getAllUsers = async (req, res) => {
 
   if (search) {
     usersQuery.where({
-      $text: { $search: search },
+      $or: [{ fullName: { $regex: search, $options: 'i' } }],
     });
   }
 
