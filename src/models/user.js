@@ -1,5 +1,5 @@
 import { model, Schema } from 'mongoose';
-import { USER_STATUS } from '../constants/status.js';
+import { STATUS } from '../constants/status.js';
 
 const userSchema = new Schema(
   {
@@ -47,8 +47,8 @@ const userSchema = new Schema(
     },
     status: {
       type: String,
-      enum: USER_STATUS,
-      default: USER_STATUS.ACTIVE,
+      enum: STATUS,
+      default: STATUS.ACTIVE,
       required: true,
     },
     isFirstLogin: {

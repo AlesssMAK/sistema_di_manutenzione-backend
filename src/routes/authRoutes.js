@@ -8,7 +8,7 @@ import {
   registerUser,
   refreshUserSession,
   loginUser,
-  registerOperator,
+  // registerOperator,
   logoutUser,
 } from '../controllers/authController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
@@ -29,11 +29,11 @@ router.post(
 
 router.post('/auth/refresh', refreshUserSession);
 router.post('/auth/login', celebrate(loginUserSchema), loginUser);
-router.patch(
-  '/auth/change-password',
-  celebrate(loginUserSchema),
-  registerOperator,
-);
+// router.patch(
+//   '/auth/change-password',
+//   celebrate(loginUserSchema),
+//   registerOperator,
+// );
 
 router.post('/auth/logout', logoutUser);
 

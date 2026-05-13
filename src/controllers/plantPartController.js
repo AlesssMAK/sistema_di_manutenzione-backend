@@ -1,30 +1,39 @@
 import { PlantPart } from '../models/part.js';
 import createHttpError from 'http-errors';
 import { Plant } from '../models/plant.js';
-export const createPlantPart = async (req, res, next) => {
-  try {
-    const { plantId, namePlantPart, codePlantPart, location, description } =
-      req.body;
-    const existingPlantPart = await PlantPart.findOne({
-      $or: [{ codePlantPart }],
-    });
 
-    if (existingPlantPart) {
-      throw createHttpError(409, 'A plant part with this code already exists.');
+export const createPlantParts = async (req, res, next) => {
+  try {
+    const { plantId, parts } = req.body;
+
+    if (!Array.isArray(parts) || parts.length === 0) {
+      throw createHttpError(400, 'Parts array is required');
     }
 
-    const newPlantPart = await PlantPart.create({
+    const codes = parts.map((p) => p.codePlantPart);
+    const existing = await PlantPart.find({ codePlantPart: { $in: codes } });
+
+    if (existing.length > 0) {
+      throw createHttpError(
+        409,
+        `Plant parts with these codes already exist: ${existing
+          .map((e) => e.codePlantPart)
+          .join(', ')}`,
+      );
+    }
+
+    const partsToCreate = parts.map((p) => ({
       plantId,
-      namePlantPart,
-      codePlantPart,
-      location,
-      description,
-    });
+      namePlantPart: p.namePlantPart,
+      codePlantPart: p.codePlantPart,
+    }));
+
+    const createdParts = await PlantPart.insertMany(partsToCreate);
 
     res.status(201).json({
       success: true,
-      message: 'PlantPart created successfully',
-      data: newPlantPart,
+      message: 'Plant parts created successfully',
+      data: createdParts,
     });
   } catch (error) {
     next(error);
@@ -75,4 +84,23 @@ export const getAllPlantParts = async (req, res) => {
       },
     },
   });
+};
+
+export const updatePlantPart = async (req, res) => {
+  const { plantPartId } = req.params;
+  const plantPart = await Plant.findOneAndUpdate(
+    {
+      _id: plantPartId,
+    },
+    req.body,
+    {
+      new: true,
+    },
+  );
+
+  if (!plantPart) {
+    throw createHttpError(404, 'Plant part not found');
+  }
+
+  res.status(200).json(plantPart);
 };

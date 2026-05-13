@@ -1,10 +1,22 @@
 import { Joi, Segments } from 'celebrate';
+import { STATUS } from '../constants/status.js';
 
-export const createPlantPartSchema = {
+export const createPlantPartsSchema = {
   [Segments.BODY]: Joi.object({
     plantId: Joi.string().trim().min(4).required(),
-    namePlantPart: Joi.string().trim().min(4).required(),
-    codePlantPart: Joi.string().trim().min(4).required(),
+
+    parts: Joi.array()
+      .items(
+        Joi.object({
+          namePlantPart: Joi.string().trim().min(4).required(),
+          codePlantPart: Joi.string().trim().min(4).required(),
+          status: Joi.string()
+            .valid(...Object.values(STATUS))
+            .default(STATUS.ACTIVE),
+        }),
+      )
+      .min(1)
+      .required(),
   }),
 };
 

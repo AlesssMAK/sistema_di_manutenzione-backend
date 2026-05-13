@@ -3,4 +3,5 @@ export const STATUS_FAULT = {
   IN_PROGRESS: 'In progress', // В роботі (виконується монтером)
   COMPLETED: 'Completed', // Виконано (завершено)
   SUSPENDED: 'Suspended', // Призупинено
+  OVERDUE: 'Overdue', // Прострочено (виставляється cron-ом A5)
 };

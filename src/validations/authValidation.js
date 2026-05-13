@@ -1,5 +1,5 @@
 import { Joi, Segments } from 'celebrate';
-import { USER_STATUS } from '../constants/status.js';
+import { STATUS } from '../constants/status.js';
 
 export const registerUserSchema = {
   [Segments.BODY]: Joi.object({
@@ -40,8 +40,8 @@ export const registerUserSchema = {
     }),
 
     status: Joi.string()
-      .valid(...Object.values(USER_STATUS))
-      .default(USER_STATUS.ACTIVE),
+      .valid(...Object.values(STATUS))
+      .default(STATUS.ACTIVE),
   }),
 };
 

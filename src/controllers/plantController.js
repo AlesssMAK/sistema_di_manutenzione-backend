@@ -30,25 +30,35 @@ export const createPlant = async (req, res) => {
     data: newPlant,
   });
 };
+
 /// Список всіх plants
 export const getAllPlants = async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const perPage = parseInt(req.query.perPage) || 12;
+  const { search, status, page = 1, perPage = 10 } = req.query;
 
   if (page < 1 || perPage < 1) {
     throw createHttpError(400, 'Page and perPage must be greater than 0');
   }
 
   const skip = (page - 1) * perPage;
+  const plantsQuery = Plant.find();
 
-  const filter = {};
-  if (req.query.search) {
-    filter.$text = { $search: req.query.search };
+  if (status) {
+    plantsQuery.where('status').equals(status);
+  }
+
+  if (search) {
+    plantsQuery.where({
+      $or: [
+        { namePlant: { $regex: search, $options: 'i' } },
+        { code: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+      ],
+    });
   }
 
   const [totalItems, plants] = await Promise.all([
-    Plant.countDocuments(filter),
-    Plant.find(filter).skip(skip).limit(perPage),
+    plantsQuery.clone().countDocuments(),
+    plantsQuery.skip(skip).limit(perPage),
   ]);
 
   const totalPages = Math.ceil(totalItems / perPage);
@@ -67,5 +77,28 @@ export const getAllPlants = async (req, res) => {
         hasPrevPage: page > 1,
       },
     },
+  });
+};
+
+export const updatePlant = async (req, res) => {
+  const { plantId } = req.params;
+  const plant = await Plant.findOneAndUpdate(
+    {
+      _id: plantId,
+    },
+    req.body,
+    {
+      new: true,
+    },
+  );
+
+  if (!plant) {
+    throw createHttpError(404, 'Plant not found');
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Plant updated successfully',
+    data: plant,
   });
 };
