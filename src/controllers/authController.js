@@ -127,33 +127,33 @@ export const loginUser = async (req, res, next) => {
   throw createHttpError(400, 'Invalid login payload');
 };
 
-export const registerOperator = async (req, res) => {
-  const {
-    name,
-    email,
-    role = 'operator',
-    personalCode,
-    lastName,
-    phone,
-  } = req.body;
+// export const registerOperator = async (req, res) => {
+//   const {
+//     name,
+//     email,
+//     role = 'operator',
+//     personalCode,
+//     lastName,
+//     phone,
+//   } = req.body;
 
-  const defaultPassword = '11111';
+//   const defaultPassword = '11111';
 
-  const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+//   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
-  const newUser = await User.create({
-    name,
-    email,
-    role,
-    personalCode,
-    password: hashedPassword, // В базе будет хэш от "11111"
-    isFirstLogin: true,
-    lastName,
-    phone,
-  });
+//   const newUser = await User.create({
+//     name,
+//     email,
+//     role,
+//     personalCode,
+//     password: hashedPassword, // В базе будет хэш от "11111"
+//     isFirstLogin: true,
+//     lastName,
+//     phone,
+//   });
 
-  res.status(201).json(newUser);
-};
+//   res.status(201).json(newUser);
+// };
 
 export const logoutUser = async (req, res) => {
   const { sessionId } = req.cookies;
