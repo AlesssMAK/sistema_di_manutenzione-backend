@@ -1,20 +1,26 @@
 import { Plant } from '../models/plant.js';
 import createHttpError from 'http-errors';
 
-///Створюємо plants
 export const createPlant = async (req, res) => {
   const { namePlant, code, location, description } = req.body;
 
   if (!namePlant) {
     throw createHttpError(400, "The 'namePlant' field is required");
   }
-  /////Проверяем уникальность (по имени или по коду)
   const existingPlant = await Plant.findOne({
     $or: [{ namePlant }, { code }],
   });
 
   if (existingPlant) {
-    throw createHttpError(409, 'A plant with this name already exists');
+    if (existingPlant.namePlant === namePlant) {
+      throw createHttpError(
+        409,
+        `A plant with name "${namePlant}" already exists`,
+      );
+    }
+    if (existingPlant.code === code) {
+      throw createHttpError(409, `A plant with code "${code}" already exists`);
+    }
   }
 
   const newPlant = await Plant.create({
@@ -31,7 +37,6 @@ export const createPlant = async (req, res) => {
   });
 };
 
-/// Список всіх plants
 export const getAllPlants = async (req, res) => {
   const { search, status, page = 1, perPage = 10 } = req.query;
 

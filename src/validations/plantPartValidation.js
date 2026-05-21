@@ -1,15 +1,20 @@
 import { Joi, Segments } from 'celebrate';
 import { STATUS } from '../constants/status.js';
+import { isValidObjectId } from 'mongoose';
+
+const objectIdValidator = (value, helpers) => {
+  return !isValidObjectId(value) ? helpers.message('Invalid id format') : value;
+};
 
 export const createPlantPartsSchema = {
   [Segments.BODY]: Joi.object({
-    plantId: Joi.string().trim().min(4).required(),
+    plantId: Joi.string().custom(objectIdValidator).trim().required(),
 
     parts: Joi.array()
       .items(
         Joi.object({
-          namePlantPart: Joi.string().trim().min(4).required(),
-          codePlantPart: Joi.string().trim().min(4).required(),
+          namePlantPart: Joi.string().trim().required(),
+          codePlantPart: Joi.string().trim().required(),
           status: Joi.string()
             .valid(...Object.values(STATUS))
             .default(STATUS.ACTIVE),
