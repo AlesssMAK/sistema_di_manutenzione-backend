@@ -7,20 +7,11 @@ export const createPlant = async (req, res) => {
   if (!namePlant) {
     throw createHttpError(400, "The 'namePlant' field is required");
   }
-  const existingPlant = await Plant.findOne({
-    $or: [{ namePlant }, { code }],
-  });
+
+  const existingPlant = await Plant.findOne({ code });
 
   if (existingPlant) {
-    if (existingPlant.namePlant === namePlant) {
-      throw createHttpError(
-        409,
-        `A plant with name "${namePlant}" already exists`,
-      );
-    }
-    if (existingPlant.code === code) {
-      throw createHttpError(409, `A plant with code "${code}" already exists`);
-    }
+    throw createHttpError(409, `A plant with code "${code}" already exists`);
   }
 
   const newPlant = await Plant.create({
