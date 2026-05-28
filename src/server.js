@@ -1,107 +1,34 @@
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
-import { logger } from './middleware/logger.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import { notFoundHandler } from './middleware/notFoundHandler.js';
-import { errors } from 'celebrate';
-import { connectMongoDB } from './db/connectMongoDB.js';
-import helmet from 'helmet';
-import authRoutes from './routes/authRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import plantsRoutes from './routes/plantsRoutes.js';
-import plantPartRoutes from './routes/plantPartRoutes.js';
-import operatorRoutes from './routes/operatorRoutes.js';
-import managerRoutes from './routes/managerRoutes.js';
-import maintenanceWorkerRoutes from './routes/maintenanceWorkerRoutes.js';
-import historyFaultRoutes from './routes/historyFaultRoutes.js';
-import generatorsRoute from './routes/generatorsRoute.js';
-import faultRoutes from './routes/faultRoutes.js';
-import { authenticate } from './middleware/authenticate.js';
-import AdminJS from 'adminjs';
-import AdminJSExpress from '@adminjs/express';
-import { adminOptions } from './admin/admin.config.js';
-import MongoStore from 'connect-mongo';
-import swaggerUi from 'swagger-ui-express';
-import { swaggerSpec } from './swagger/swaggerConfig.js';
+import http from 'node:http';
 
-const app = express();
+import { buildApp } from './app.js';
+import { connectMongoDB } from './db/connectMongoDB.js';
+import { ensureSingleton as ensureSystemSettings } from './services/systemSettings.js';
+import { ensureTtlIndex as ensureAuditTtlIndex } from './services/auditLog.js';
+import { ensureMessageTtlIndex } from './services/message.js';
+import { initSocket } from './socket/index.js';
+import { startCronJobs, stopCronJobs } from './cron/index.js';
+
 const PORT = process.env.PORT || 3040;
 
-// ADMIN
-const isProd = process.env.NODE_ENV === 'production';
-const createAdminJS = () => {
-  const admin = new AdminJS(adminOptions);
-
-  const sessionStore = MongoStore.create({
-    mongoUrl: process.env.MONGO_URL,
-    collectionName: 'admin_sessions',
-    ttl: 24 * 60 * 60,
-  });
-  const adminRouter = AdminJSExpress.buildAuthenticatedRouter(
-    admin,
-    {
-      authenticate,
-      cookieName: 'adminjs',
-      cookiePassword: process.env.ADMIN_COOKIE_SECRET,
-    },
-    null,
-    {
-      store: sessionStore,
-      resave: false,
-      saveUninitialized: false,
-      secret: process.env.ADMIN_SESSION_SECRET,
-      cookie: {
-        httpOnly: true,
-        secure: isProd,
-        maxAge: 1000 * 60 * 60 * 24,
-      },
-      name: 'adminjs',
-    },
-  );
-  app.use(admin.options.rootPath, adminRouter);
-
-  if (!isProd) {
-    admin.watch();
-  }
-  console.log('✅ AdminJS mounted at:', admin.options.rootPath);
-};
-
-createAdminJS();
-
-///ADMIN
-
-app.use(helmet());
-app.use(logger);
-app.use(express.json());
-app.use(
-  cors({
-    origin: ['https://http://localhost:3000/'],
-    credentials: true,
-  }),
-);
-app.use(cookieParser());
-
-// Swagger documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-//routes
-app.use(authRoutes);
-app.use(userRoutes);
-app.use(plantsRoutes);
-app.use(plantPartRoutes);
-app.use(operatorRoutes);
-app.use(managerRoutes);
-app.use(maintenanceWorkerRoutes);
-app.use(historyFaultRoutes);
-app.use(generatorsRoute);
-app.use(faultRoutes);
-app.use(notFoundHandler);
-app.use(errors());
-app.use(errorHandler);
-
 await connectMongoDB();
+await ensureSystemSettings();
+await ensureAuditTtlIndex();
+await ensureMessageTtlIndex();
+await startCronJobs();
 
-app.listen(PORT, () => {
+const app = buildApp();
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+const shutdown = (signal) => {
+  console.log(`Received ${signal}, shutting down…`);
+  stopCronJobs();
+  httpServer.close(() => process.exit(0));
+};
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
