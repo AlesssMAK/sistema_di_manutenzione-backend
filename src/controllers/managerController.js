@@ -1,6 +1,9 @@
 import { Fault } from '../models/fault.js';
 import { User } from '../models/user.js';
 import mongoose from 'mongoose';
+import { emitFaultUpdated, emitToUser } from '../socket/emitters.js';
+import { sendAssignmentEmail } from '../services/email/index.js';
+import { logFromRequest } from '../services/auditLog.js';
 
 export const addFault = async (req, res) => {
   try {
@@ -17,7 +20,7 @@ export const addFault = async (req, res) => {
     } = req.body;
 
     const managerId = req.user?._id;
-    const managerName = req.user?.name || 'Менеджер';
+    const managerName = req.user?.fullName || 'Manager';
 
     const maintainerObjectIds = assignedMaintainers.map((id) =>
       mongoose.Types.ObjectId.createFromHexString(id.trim()),
@@ -31,7 +34,7 @@ export const addFault = async (req, res) => {
 
     if (overlappingFault) {
       return res.status(409).json({
-        message: `Один із майстрів уже зайнятий на цей час (${plannedDate} ${plannedTime})`,
+        message: `One or more maintainers are already busy at this time (${plannedDate} ${plannedTime})`,
       });
     }
 
@@ -42,14 +45,14 @@ export const addFault = async (req, res) => {
 
     if (workers.length !== assignedMaintainers.length) {
       return res.status(400).json({
-        message: 'Один або кілька вибраних користівачів не є монтерами',
+        message: 'One or more selected users are not maintenance workers',
       });
     }
 
     const fault = await Fault.findById(documentId);
 
     if (!fault) {
-      return res.status(404).json({ message: 'Несправність не знайдена' });
+      return res.status(404).json({ message: 'Fault not found' });
     }
 
     const updateData = {
@@ -76,12 +79,43 @@ export const addFault = async (req, res) => {
 
     await fault.save();
 
-    await fault.populate('assignedMaintainers', 'name');
+    const populatedFault = await Fault.findById(fault._id)
+      .populate({ path: 'plantId', select: 'namePlant code' })
+      .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
+      .populate({ path: 'assignedMaintainers', select: 'fullName email' });
 
-    return res.status(200).json(fault);
+    emitFaultUpdated(populatedFault);
+    for (const maintainer of populatedFault.assignedMaintainers ?? []) {
+      emitToUser(maintainer._id, 'fault:updated', populatedFault);
+    }
+
+    await logFromRequest(req, {
+      action: 'fault.assign',
+      targetType: 'Fault',
+      targetId: populatedFault._id,
+      summary: `Assigned fault ${populatedFault.faultId} to ${workers.length} maintainer(s)`,
+      meta: {
+        priority,
+        plannedDate,
+        plannedTime,
+        deadline,
+        assignedMaintainers,
+      },
+    });
+
+    setImmediate(() => {
+      sendAssignmentEmail(
+        populatedFault,
+        populatedFault.assignedMaintainers ?? [],
+      ).catch((err) =>
+        console.error('[email] post-assign dispatch failed', err.message),
+      );
+    });
+
+    return res.status(200).json(populatedFault);
   } catch (error) {
     return res.status(500).json({
-      message: 'Помилка при оновленні несправності менеджером',
+      message: 'Error updating fault by manager',
       error: error.message,
     });
   }
