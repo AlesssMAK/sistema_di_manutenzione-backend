@@ -1,3 +1,4 @@
+import { PlantPart } from '../models/part.js';
 import { Plant } from '../models/plant.js';
 import createHttpError from 'http-errors';
 
@@ -8,10 +9,20 @@ export const createPlant = async (req, res) => {
     throw createHttpError(400, "The 'namePlant' field is required");
   }
 
-  const existingPlant = await Plant.findOne({ code });
+  const existingPlant = await Plant.findOne({
+    $or: [{ code }, { namePlant }],
+  });
 
   if (existingPlant) {
-    throw createHttpError(409, `A plant with code "${code}" already exists`);
+    if (existingPlant.code === code) {
+      throw createHttpError(409, `A plant with code "${code}" already exists`);
+    }
+    if (existingPlant.namePlant === namePlant) {
+      throw createHttpError(
+        409,
+        `A plant with name "${namePlant}" already exists`,
+      );
+    }
   }
 
   const newPlant = await Plant.create({
@@ -96,5 +107,24 @@ export const updatePlant = async (req, res) => {
     success: true,
     message: 'Plant updated successfully',
     data: plant,
+  });
+};
+
+export const deletePlant = async (req, res) => {
+  const { plantId } = req.params;
+  const plant = await Plant.findByIdAndDelete(plantId);
+
+  if (!plant) {
+    throw createHttpError(404, 'Plant not found');
+  }
+
+  const { deletedCount } = await PlantPart.deleteMany({ plantId });
+  res.status(200).json({
+    success: true,
+    message: 'Plant deleted successfully',
+    data: {
+      plant,
+      deletedPartsCount: deletedCount,
+    },
   });
 };

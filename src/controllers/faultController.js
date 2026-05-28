@@ -2,7 +2,6 @@ import createHttpError from 'http-errors';
 import { Fault } from '../models/fault.js';
 import { Plant } from '../models/plant.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
-import mongoose from 'mongoose';
 import { PlantPart } from '../models/part.js';
 
 export const createFault = async (req, res) => {
@@ -77,10 +76,6 @@ export const createFault = async (req, res) => {
   const populatedFault = await Fault.findById(newFault._id)
     .populate({ path: 'plantId', select: 'namePlant code' })
     .populate({ path: 'partId', select: 'namePlantPart codePlantPart' });
-
-  await mongoose.connection
-    .collection('original_faults')
-    .insertOne(newFault.toObject());
 
   return res.status(201).json(populatedFault);
 };
