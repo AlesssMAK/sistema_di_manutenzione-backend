@@ -13,6 +13,8 @@ const subjectFor = (template, ctx) => {
       return `Nuovo intervento assegnato: ${ctx.faultId}`;
     case 'sicurezzaHse':
       return `[SICUREZZA] Nuova segnalazione: ${ctx.faultId}`;
+    case 'suspended':
+      return `Intervento sospeso: ${ctx.faultId}`;
     case 'directMessage':
       return ctx.subject
         ? `[MMS] ${ctx.subject}`
@@ -122,6 +124,27 @@ export const sendDirectMessageEmail = async (message, recipient) => {
       subject: message.subject ?? '',
       body: message.body ?? '',
       link: `${FRONTEND_URL()}/inbox/${message.authorId}`,
+    }),
+  });
+};
+
+export const sendSuspendedEmail = async (fault, manager, worker) => {
+  const gate = await guard('onSuspended');
+  if (!gate.ok) return { skipped: true, reason: gate.reason };
+  if (!manager?.email)
+    return { skipped: true, reason: 'no_manager_email' };
+
+  return sendBulk({
+    recipients: [manager],
+    template: 'suspended',
+    from: gate.settings.email.from,
+    contextFor: () => ({
+      ...baseFaultContext(fault),
+      recipientName: manager.fullName ?? '',
+      workerName: worker?.fullName ?? 'Manutentore',
+      suspensionReason: fault.suspensionReason ?? '',
+      materialRequest: fault.materialRequest ?? '',
+      link: buildLink('manager', fault._id),
     }),
   });
 };

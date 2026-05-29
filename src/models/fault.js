@@ -97,6 +97,33 @@ const faultSchema = new Schema(
       type: String,
       trim: true,
     },
+    actualDuration: {
+      type: Number,
+      min: 1,
+    },
+    suspensionReason: {
+      type: String,
+      trim: true,
+    },
+    materialRequest: {
+      type: String,
+      trim: true,
+    },
+    completedAt: {
+      type: Date,
+    },
+    claimedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    claimedAt: {
+      type: Date,
+    },
+    autoRescheduledFrom: {
+      plannedDate: { type: String },
+      plannedTime: { type: String },
+      timestamp: { type: Date },
+    },
     history: [
       {
         action: { type: String, required: true }, // 'created', 'updated'

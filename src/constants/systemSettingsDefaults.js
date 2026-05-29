@@ -18,6 +18,7 @@ export const systemSettingsDefaults = {
       onNewFault: true,
       onSicurezzaHse: true,
       onDirectMessage: true,
+      onSuspended: true,
     },
     rateLimits: {
       perRecipientPerHour: 10,

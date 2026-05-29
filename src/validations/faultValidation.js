@@ -173,3 +173,36 @@ export const addFaultByMaintenanceWorkerSchema = {
     commentMaintenanceWorker: Joi.string().optional(),
   }),
 };
+
+export const updateFaultByMaintenanceWorkerSchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    statusFault: Joi.string()
+      .valid(...Object.values(STATUS_FAULT))
+      .required(),
+    commentMaintenanceWorker: Joi.string().allow('', null).optional(),
+    actualDuration: Joi.alternatives().conditional('statusFault', {
+      is: STATUS_FAULT.COMPLETED,
+      then: Joi.number().min(1).required().messages({
+        'any.required': 'actualDuration is required when statusFault is Completed',
+      }),
+      otherwise: Joi.number().min(1).optional(),
+    }),
+    suspensionReason: Joi.alternatives().conditional('statusFault', {
+      is: STATUS_FAULT.SUSPENDED,
+      then: Joi.string().trim().min(3).required().messages({
+        'any.required': 'suspensionReason is required when statusFault is Suspended',
+      }),
+      otherwise: Joi.string().trim().allow('', null).optional(),
+    }),
+    materialRequest: Joi.string().trim().allow('', null).optional(),
+  }),
+};
+
+export const claimFaultSchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+};
