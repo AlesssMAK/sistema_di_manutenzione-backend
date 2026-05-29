@@ -144,7 +144,15 @@ export const getAllFault = async (req, res) => {
   if (dataCreated) query.dataCreated = dataCreated;
   if (timeCreated) query.timeCreated = timeCreated;
   if (plannedDate) query.plannedDate = plannedDate;
-  if (statusFault) query.statusFault = statusFault;
+  if (statusFault) {
+    const list = Array.isArray(statusFault)
+      ? statusFault
+      : String(statusFault)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    query.statusFault = list.length > 1 ? { $in: list } : list[0];
+  }
 
   if (plant) {
     const plants = await Plant.find({

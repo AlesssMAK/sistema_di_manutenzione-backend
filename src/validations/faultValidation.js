@@ -72,8 +72,22 @@ export const getAllFaultSchema = {
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
     plannedDate: Joi.string().trim().optional(),
+    // statusFault accepts a single value or a CSV list (e.g. "In progress,Suspended,Overdue")
     statusFault: Joi.string()
-      .valid(...Object.values(STATUS_FAULT))
+      .trim()
+      .custom((value, helpers) => {
+        const allowed = Object.values(STATUS_FAULT);
+        const list = value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (!list.every((s) => allowed.includes(s))) {
+          return helpers.message(
+            `statusFault must contain only: ${allowed.join(', ')}`,
+          );
+        }
+        return value;
+      })
       .optional(),
     priority: Joi.string()
       .valid(...Object.values(TYPE_PRIORITY))
