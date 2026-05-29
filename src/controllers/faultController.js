@@ -125,6 +125,8 @@ export const getAllFault = async (req, res) => {
     dataCreated,
     timeCreated,
     deadline,
+    plannedDate,
+    statusFault,
     sort = 'desc',
     sortBy = 'dataCreated',
     sortOrder = 'asc',
@@ -141,6 +143,8 @@ export const getAllFault = async (req, res) => {
   if (typeFault) query.typeFault = typeFault;
   if (dataCreated) query.dataCreated = dataCreated;
   if (timeCreated) query.timeCreated = timeCreated;
+  if (plannedDate) query.plannedDate = plannedDate;
+  if (statusFault) query.statusFault = statusFault;
 
   if (plant) {
     const plants = await Plant.find({

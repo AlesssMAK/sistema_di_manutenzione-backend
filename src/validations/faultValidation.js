@@ -71,11 +71,17 @@ export const getAllFaultSchema = {
     dataCreated: Joi.string().trim().optional(),
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
+    plannedDate: Joi.string().trim().optional(),
+    statusFault: Joi.string()
+      .valid(...Object.values(STATUS_FAULT))
+      .optional(),
     priority: Joi.string()
       .valid(...Object.values(TYPE_PRIORITY))
       .optional(),
     page: Joi.number().integer().min(1).default(1),
-    perPage: Joi.number().integer().min(1).max(50).default(2),
+    // perPage temporarily up to 200 to support deadline-highlight workaround
+    // on the maintenance-worker page; drop back to 50 once GET /faults/deadlines lands
+    perPage: Joi.number().integer().min(1).max(200).default(2),
     sortBy: Joi.string().valid(
       'faultId',
       'nameOperator',
