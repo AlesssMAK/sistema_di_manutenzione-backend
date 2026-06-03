@@ -72,6 +72,8 @@ export const getAllFaultSchema = {
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
     plannedDate: Joi.string().trim().optional(),
+    assignedTo: Joi.string().trim().optional(),
+    assignedToEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
     // statusFault accepts a single value or a CSV list (e.g. "In progress,Suspended,Overdue")
     statusFault: Joi.string()
       .trim()

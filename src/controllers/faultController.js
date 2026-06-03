@@ -127,6 +127,8 @@ export const getAllFault = async (req, res) => {
     deadline,
     plannedDate,
     statusFault,
+    assignedTo,
+    assignedToEmpty,
     sort = 'desc',
     sortBy = 'dataCreated',
     sortOrder = 'asc',
@@ -144,6 +146,12 @@ export const getAllFault = async (req, res) => {
   if (dataCreated) query.dataCreated = dataCreated;
   if (timeCreated) query.timeCreated = timeCreated;
   if (plannedDate) query.plannedDate = plannedDate;
+  // assignedToEmpty takes precedence — pool fault filter
+  if (assignedToEmpty === true || assignedToEmpty === 'true') {
+    query.assignedMaintainers = { $size: 0 };
+  } else if (assignedTo) {
+    query.assignedMaintainers = assignedTo;
+  }
   if (statusFault) {
     const list = Array.isArray(statusFault)
       ? statusFault
