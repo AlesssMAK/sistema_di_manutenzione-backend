@@ -1,4 +1,5 @@
 import createHttpError from 'http-errors';
+import { DateTime } from 'luxon';
 import { Fault } from '../models/fault.js';
 import { User } from '../models/user.js';
 import {
@@ -7,6 +8,7 @@ import {
 } from '../socket/emitters.js';
 import { sendSuspendedEmail } from '../services/email/index.js';
 import { logFromRequest } from '../services/auditLog.js';
+import { getSettings } from '../services/systemSettings.js';
 
 const ALLOWED_TRANSITIONS = {
   Created: [], // only via claim
@@ -52,6 +54,25 @@ export const claimFault = async (req, res) => {
   const claimableStatuses = ['Created', 'Overdue'];
   const previousStatus = original.statusFault;
 
+  // Determine "today" in the system timezone so pool faults (claimed
+  // without prior manager planning) get a sensible default plannedDate.
+  // Without this, the calendar/slot-grid can't show them on any day.
+  const settings = await getSettings();
+  const tz = settings?.timezone ?? 'Europe/Rome';
+  const nowInTz = DateTime.now().setZone(tz);
+  const today = nowInTz.toISODate();
+  const currentTime = nowInTz.toFormat('HH:mm');
+
+  const claimSet = {
+    statusFault: 'In progress',
+    claimedBy: userId,
+    claimedAt: new Date(),
+  };
+  if (!original.plannedDate) {
+    claimSet.plannedDate = today;
+    claimSet.plannedTime = currentTime;
+  }
+
   // Scenario A: technician is in assignedMaintainers
   let updated = await Fault.findOneAndUpdate(
     {
@@ -59,13 +80,7 @@ export const claimFault = async (req, res) => {
       statusFault: { $in: claimableStatuses },
       assignedMaintainers: userId,
     },
-    {
-      $set: {
-        statusFault: 'In progress',
-        claimedBy: userId,
-        claimedAt: new Date(),
-      },
-    },
+    { $set: claimSet },
     { new: true },
   );
 
@@ -78,11 +93,7 @@ export const claimFault = async (req, res) => {
         assignedMaintainers: { $size: 0 },
       },
       {
-        $set: {
-          statusFault: 'In progress',
-          claimedBy: userId,
-          claimedAt: new Date(),
-        },
+        $set: claimSet,
         $push: { assignedMaintainers: userId },
       },
       { new: true },
