@@ -86,6 +86,12 @@ export const runReplanScan = async () => {
 
       fault.plannedDate = slot.date;
       fault.plannedTime = slot.time;
+      // record the original schedule for the "Riprogrammata" badge on UI
+      fault.autoRescheduledFrom = {
+        plannedDate: previous.plannedDate,
+        plannedTime: previous.plannedTime,
+        timestamp: new Date(),
+      };
       fault.history.push({
         action: 'auto_replanned',
         userId: null,
