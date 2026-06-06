@@ -38,3 +38,21 @@ export const getPartsSchema = {
     search: Joi.string().allow('').optional(),
   }),
 };
+
+export const deletePlantPartSchema = {
+  [Segments.PARAMS]: Joi.object({
+    plantId: Joi.string().required(),
+    plantPartId: Joi.string().custom(objectIdValidator).required(),
+  }),
+};
+
+export const updatePlantPartSchema = {
+  ...deletePlantPartSchema,
+  [Segments.BODY]: Joi.object({
+    namePlantPart: Joi.string().trim().optional(),
+    codePlantPart: Joi.string().trim().optional(),
+    status: Joi.string()
+      .valid(...Object.values(STATUS))
+      .optional(),
+  }),
+};

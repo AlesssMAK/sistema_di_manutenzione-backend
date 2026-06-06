@@ -102,5 +102,19 @@ export const updatePlantPart = async (req, res) => {
     throw createHttpError(404, 'Plant part not found');
   }
 
-  res.status(200).json(plantPart);
+  res.status(200).json({ success: true, plantPart: plantPart });
+};
+
+export const deletePlantPart = async (req, res) => {
+  const { plantPartId } = req.params;
+  const plantPart = await PlantPart.findByIdAndDelete(plantPartId);
+
+  if (!plantPart) {
+    throw createHttpError(404, 'Plant part not found');
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Plant part deleted successfully',
+  });
 };
