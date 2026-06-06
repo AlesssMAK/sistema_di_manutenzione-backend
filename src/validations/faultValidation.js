@@ -208,3 +208,12 @@ export const claimFaultSchema = {
     faultId: Joi.string().custom(objectIdValidator).required(),
   }),
 };
+
+export const updateFaultBySafetySchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    commentSafety: Joi.string().trim().allow('').max(2000).required(),
+  }),
+};

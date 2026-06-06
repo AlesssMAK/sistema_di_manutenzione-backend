@@ -28,6 +28,7 @@ import systemSettingsRoutes from './routes/systemSettingsRoutes.js';
 import auditLogRoutes from './routes/auditLogRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import cronRoutes from './routes/cronRoutes.js';
+import safetyRoutes from './routes/safetyRoutes.js';
 
 export const buildApp = ({ withAdmin = true, withSwagger = true } = {}) => {
   const app = express();
@@ -69,6 +70,7 @@ export const buildApp = ({ withAdmin = true, withSwagger = true } = {}) => {
   app.use(auditLogRoutes);
   app.use(messageRoutes);
   app.use(cronRoutes);
+  app.use(safetyRoutes);
 
   app.use(notFoundHandler);
   app.use(errors());

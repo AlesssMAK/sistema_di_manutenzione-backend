@@ -97,6 +97,10 @@ const faultSchema = new Schema(
       type: String,
       trim: true,
     },
+    commentSafety: {
+      type: String,
+      trim: true,
+    },
     actualDuration: {
       type: Number,
       min: 1,
