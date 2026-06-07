@@ -88,7 +88,7 @@ export const getAllPlantParts = async (req, res) => {
 
 export const updatePlantPart = async (req, res) => {
   const { plantPartId } = req.params;
-  const plantPart = await Plant.findOneAndUpdate(
+  const plantPart = await PlantPart.findOneAndUpdate(
     {
       _id: plantPartId,
     },
