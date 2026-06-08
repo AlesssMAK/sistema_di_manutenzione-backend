@@ -33,6 +33,7 @@ export const AUDIT_ACTIONS = [
 
   'message.create',
   'message.broadcast',
+  'message.reply',
   'message.delete',
 
   'cron.reschedule',

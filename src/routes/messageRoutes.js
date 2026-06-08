@@ -10,6 +10,7 @@ import {
   listInboxSchema,
   listAnnouncementsSchema,
   messageIdParamsSchema,
+  replyMessageSchema,
 } from '../validations/messageValidation.js';
 
 import {
@@ -19,6 +20,7 @@ import {
   listAnnouncements,
   getUnreadCount,
   markAsRead,
+  replyToMessage,
   deleteMessage,
 } from '../controllers/messageController.js';
 
@@ -56,6 +58,12 @@ router.patch(
   '/messages/:id/read',
   celebrate(messageIdParamsSchema),
   ctrlWrapper(markAsRead),
+);
+
+router.post(
+  '/messages/:id/reply',
+  celebrate(replyMessageSchema),
+  ctrlWrapper(replyToMessage),
 );
 
 router.delete(

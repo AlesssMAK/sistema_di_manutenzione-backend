@@ -67,6 +67,16 @@ const messageSchema = new Schema(
       default: [],
     },
 
+    // Set on direct messages created via POST /messages/:id/reply.
+    // Points back to the message being replied to (any type) so the
+    // frontend can render conversation threads.
+    replyToId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Message',
+      default: null,
+      index: true,
+    },
+
     // Set only for broadcast_*; powers the TTL index below. Direct messages
     // leave it null so they are never auto-expired.
     expireAt: {

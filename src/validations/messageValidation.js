@@ -51,3 +51,13 @@ export const messageIdParamsSchema = {
     id: objectId.required(),
   }),
 };
+
+export const replyMessageSchema = {
+  [Segments.PARAMS]: Joi.object({
+    id: objectId.required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    subject: Joi.string().trim().max(200).allow('').default(''),
+    body: Joi.string().trim().min(1).max(5000).required(),
+  }),
+};

@@ -222,6 +222,78 @@ export const markAsRead = async (req, res) => {
   return res.status(200).json(updated);
 };
 
+// ---------- POST /messages/:id/reply ----------
+// Lets any user (including operators) respond to a message they received —
+// direct addressed to them, broadcast_role targeting their role, or
+// broadcast_all. The reply is always a new direct message back to the
+// original author, with replyToId set for thread reconstruction.
+export const replyToMessage = async (req, res) => {
+  const { id } = req.params;
+  const { subject, body } = req.body;
+  const userId = req.user._id;
+  const userRole = req.user.role;
+
+  const original = await Message.findById(id);
+  if (!original) throw createHttpError(404, 'Message not found');
+
+  // Author can't reply to their own message — it'd send to themselves.
+  if (String(original.authorId) === String(userId)) {
+    throw createHttpError(400, 'Cannot reply to your own message');
+  }
+
+  // Type-specific authorization — only addressees can reply.
+  if (original.type === MESSAGE_TYPE.DIRECT) {
+    if (String(original.recipientId) !== String(userId)) {
+      throw createHttpError(403, 'Not your message');
+    }
+  } else if (original.type === MESSAGE_TYPE.BROADCAST_ROLE) {
+    if (original.targetRole !== userRole) {
+      throw createHttpError(403, 'Broadcast not addressed to your role');
+    }
+  }
+  // BROADCAST_ALL: addressed to everyone, no extra gate.
+
+  // Original author must still be a live, active recipient.
+  const recipient = await User.findById(original.authorId).lean();
+  if (!recipient) {
+    throw createHttpError(404, 'Original author no longer exists');
+  }
+  if (recipient.status !== 'active') {
+    throw createHttpError(400, 'Original author is not active');
+  }
+
+  const reply = await Message.create({
+    type: MESSAGE_TYPE.DIRECT,
+    authorId: userId,
+    authorName: req.user.fullName,
+    authorRole: userRole,
+    recipientId: original.authorId,
+    subject: subject ?? '',
+    body,
+    replyToId: original._id,
+  });
+
+  const populated = await populateAuthor(Message.findById(reply._id)).lean();
+
+  emitMessageNew(populated);
+
+  setImmediate(() => {
+    sendDirectMessageEmail(populated, recipient).catch((err) =>
+      console.error('[email] reply message failed', err.message),
+    );
+  });
+
+  logFromRequest(req, {
+    action: 'message.reply',
+    targetType: 'Message',
+    targetId: reply._id,
+    summary: `reply → ${recipient.email} (re: ${original._id})`,
+    meta: { replyToId: original._id, originalType: original.type },
+  });
+
+  return res.status(201).json(populated);
+};
+
 // ---------- DELETE /messages/:id ----------
 export const deleteMessage = async (req, res) => {
   const { id } = req.params;
