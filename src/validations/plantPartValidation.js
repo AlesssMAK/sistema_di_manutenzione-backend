@@ -36,6 +36,9 @@ export const getPartsSchema = {
     page: Joi.number().integer().min(1).default(1),
     perPage: Joi.number().integer().min(1).default(12),
     search: Joi.string().allow('').optional(),
+    status: Joi.string()
+      .valid(...Object.values(STATUS))
+      .optional(),
   }),
 };
 

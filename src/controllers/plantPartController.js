@@ -48,23 +48,32 @@ export const getAllPlantParts = async (req, res) => {
   if (!isPlantExist) {
     throw createHttpError(404, `Plant with ID ${plantId} not found`);
   }
-  const page = parseInt(req.query.page) || 1;
-  const perPage = parseInt(req.query.perPage) || 12;
+
+  const { search, status, page = 1, perPage = 10 } = req.query;
 
   if (page < 1 || perPage < 1) {
     throw createHttpError(400, 'Page and perPage must be greater than 0');
   }
 
   const skip = (page - 1) * perPage;
+  const plantPartsQuery = PlantPart.find({ plantId });
 
-  const filter = { plantId };
-  if (req.query.search) {
-    filter.$text = { $search: req.query.search };
+  if (status) {
+    plantPartsQuery.where('status').equals(status);
+  }
+
+  if (search) {
+    plantPartsQuery.where({
+      $or: [
+        { namePlantPart: { $regex: search, $options: 'i' } },
+        { codePlantPart: { $regex: search, $options: 'i' } },
+      ],
+    });
   }
 
   const [totalItems, plantParts] = await Promise.all([
-    PlantPart.countDocuments(filter),
-    PlantPart.find(filter).skip(skip).limit(perPage),
+    plantPartsQuery.clone().countDocuments(),
+    plantPartsQuery.skip(skip).limit(perPage),
   ]);
 
   const totalPages = Math.ceil(totalItems / perPage);
