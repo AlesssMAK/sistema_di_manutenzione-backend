@@ -118,6 +118,7 @@ export const getAllFault = async (req, res) => {
   const {
     faultId,
     nameOperator,
+    createdById,
     priority,
     plant,
     plantPart,
@@ -142,6 +143,7 @@ export const getAllFault = async (req, res) => {
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
+  if (createdById) query.userId = createdById;
   if (typeFault) query.typeFault = typeFault;
   if (dataCreated) query.dataCreated = dataCreated;
   if (timeCreated) query.timeCreated = timeCreated;

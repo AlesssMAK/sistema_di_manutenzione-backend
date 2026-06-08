@@ -65,6 +65,7 @@ export const getAllFaultSchema = {
   [Segments.QUERY]: Joi.object({
     faultId: Joi.string().trim().optional(),
     nameOperator: Joi.string().trim().optional(),
+    createdById: Joi.string().custom(objectIdValidator).optional(),
     plant: Joi.string().trim().optional(),
     partPlant: Joi.string().trim().optional(),
     typeFault: Joi.string().trim().optional(),
