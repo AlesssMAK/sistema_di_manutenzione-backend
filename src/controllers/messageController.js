@@ -138,16 +138,28 @@ export const listInbox = async (req, res) => {
 
 // ---------- GET /messages/announcements ----------
 export const listAnnouncements = async (req, res) => {
-  const { page, perPage, unreadOnly } = req.query;
+  const { types, page, perPage, unreadOnly } = req.query;
   const userId = req.user._id;
   const role = req.user.role;
 
-  const filter = {
-    $or: [
-      { type: MESSAGE_TYPE.BROADCAST_ALL },
-      { type: MESSAGE_TYPE.BROADCAST_ROLE, targetRole: role },
-    ],
-  };
+  // Default = both broadcast_all and broadcast_role for the user's role.
+  // ?types= lets clients narrow it (e.g. bell preview wants only role-targeted).
+  const requestedTypes = types
+    ? String(types)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [MESSAGE_TYPE.BROADCAST_ALL, MESSAGE_TYPE.BROADCAST_ROLE];
+
+  const typeClauses = [];
+  if (requestedTypes.includes(MESSAGE_TYPE.BROADCAST_ALL)) {
+    typeClauses.push({ type: MESSAGE_TYPE.BROADCAST_ALL });
+  }
+  if (requestedTypes.includes(MESSAGE_TYPE.BROADCAST_ROLE)) {
+    typeClauses.push({ type: MESSAGE_TYPE.BROADCAST_ROLE, targetRole: role });
+  }
+
+  const filter = typeClauses.length === 1 ? typeClauses[0] : { $or: typeClauses };
   if (unreadOnly) filter.readBy = { $ne: userId };
 
   const skip = (page - 1) * perPage;
@@ -168,6 +180,11 @@ export const listAnnouncements = async (req, res) => {
 };
 
 // ---------- GET /messages/unread-count ----------
+// Split into three buckets so the FE can drive different UI elements:
+//   - `direct`             → header bell badge contribution
+//   - `roleAnnouncements`  → header bell badge contribution
+//   - `allAnnouncements`   → /reports-and-communications dashboard badge
+// Operators have no direct inbox (gated by listInbox), so we return 0 there.
 export const getUnreadCount = async (req, res) => {
   const userId = req.user._id;
   const role = req.user.role;
@@ -181,20 +198,24 @@ export const getUnreadCount = async (req, res) => {
         readBy: { $ne: userId },
       };
 
-  const announcementFilter = {
-    $or: [
-      { type: MESSAGE_TYPE.BROADCAST_ALL },
-      { type: MESSAGE_TYPE.BROADCAST_ROLE, targetRole: role },
-    ],
+  const roleFilter = {
+    type: MESSAGE_TYPE.BROADCAST_ROLE,
+    targetRole: role,
     readBy: { $ne: userId },
   };
 
-  const [direct, announcements] = await Promise.all([
+  const allFilter = {
+    type: MESSAGE_TYPE.BROADCAST_ALL,
+    readBy: { $ne: userId },
+  };
+
+  const [direct, roleAnnouncements, allAnnouncements] = await Promise.all([
     directFilter ? Message.countDocuments(directFilter) : Promise.resolve(0),
-    Message.countDocuments(announcementFilter),
+    Message.countDocuments(roleFilter),
+    Message.countDocuments(allFilter),
   ]);
 
-  return res.status(200).json({ direct, announcements });
+  return res.status(200).json({ direct, roleAnnouncements, allAnnouncements });
 };
 
 // ---------- PATCH /messages/:id/read ----------
