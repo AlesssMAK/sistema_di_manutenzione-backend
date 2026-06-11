@@ -88,25 +88,49 @@ export const getAllPlants = async (req, res) => {
 };
 
 export const updatePlant = async (req, res) => {
+  const { namePlant, code } = req.body;
   const { plantId } = req.params;
-  const plant = await Plant.findOneAndUpdate(
-    {
-      _id: plantId,
-    },
-    req.body,
-    {
-      new: true,
-    },
-  );
+
+  const plant = await Plant.findById(plantId);
+  // const plant = await Plant.findOneAndUpdate(
+  //   {
+  //     _id: plantId,
+  //   },
+  //   req.body,
+  //   {
+  //     new: true,
+  //   },
+  // );
 
   if (!plant) {
     throw createHttpError(404, 'Plant not found');
   }
 
+  const existingPlant = await Plant.findOne({
+    _id: { $ne: plantId },
+    $or: [{ code }, { namePlant }],
+  });
+
+  if (existingPlant) {
+    if (existingPlant.code === code) {
+      throw createHttpError(409, `A plant with code "${code}" already exists`);
+    }
+    if (existingPlant.namePlant === namePlant) {
+      throw createHttpError(
+        409,
+        `A plant with name "${namePlant}" already exists`,
+      );
+    }
+  }
+
+  const updatedPlant = await Plant.findByIdAndUpdate(plantId, req.body, {
+    new: true,
+  });
+
   res.status(200).json({
     success: true,
     message: 'Plant updated successfully',
-    data: plant,
+    data: updatedPlant,
   });
 };
 

@@ -97,21 +97,39 @@ export const getAllPlantParts = async (req, res) => {
 
 export const updatePlantPart = async (req, res) => {
   const { plantPartId } = req.params;
-  const plantPart = await PlantPart.findOneAndUpdate(
-    {
-      _id: plantPartId,
-    },
+  const { codePlantPart } = req.body;
+
+  const plantPart = await PlantPart.findById(plantPartId);
+
+  if (!plantPart) {
+    throw createHttpError(404, 'Plant part not found');
+  }
+
+  const existingPlantPart = await PlantPart.findOne({
+    _id: { $ne: plantPartId },
+    codePlantPart,
+  });
+
+  if (existingPlantPart) {
+    throw createHttpError(
+      409,
+      `A plant part with code "${codePlantPart}" already exists`,
+    );
+  }
+
+  const updatedPlantPart = await PlantPart.findByIdAndUpdate(
+    plantPartId,
     req.body,
     {
       new: true,
     },
   );
 
-  if (!plantPart) {
-    throw createHttpError(404, 'Plant part not found');
-  }
-
-  res.status(200).json({ success: true, plantPart: plantPart });
+  res.status(200).json({
+    success: true,
+    message: 'Plant part updated successfully',
+    data: updatedPlantPart,
+  });
 };
 
 export const deletePlantPart = async (req, res) => {
