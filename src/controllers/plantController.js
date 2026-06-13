@@ -92,15 +92,6 @@ export const updatePlant = async (req, res) => {
   const { plantId } = req.params;
 
   const plant = await Plant.findById(plantId);
-  // const plant = await Plant.findOneAndUpdate(
-  //   {
-  //     _id: plantId,
-  //   },
-  //   req.body,
-  //   {
-  //     new: true,
-  //   },
-  // );
 
   if (!plant) {
     throw createHttpError(404, 'Plant not found');
