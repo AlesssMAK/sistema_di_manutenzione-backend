@@ -196,6 +196,7 @@ export const getAllFault = async (req, res) => {
     Fault.find(query)
       .populate({ path: 'plantId', select: 'namePlant code' })
       .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
+      .populate({ path: 'assignedMaintainers', select: 'fullName email' })
       .sort({ createdAt: sortOption })
       .skip(skip)
       .limit(perPage)
@@ -219,7 +220,8 @@ export const getFaultById = async (req, res) => {
 
   const fault = await Fault.findById(faultId)
     .populate({ path: 'plantId', select: 'namePlant code' })
-    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' });
+    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
+    .populate({ path: 'assignedMaintainers', select: 'fullName email' });
 
   if (!fault) {
     throw createHttpError(404, 'Fault not found');
