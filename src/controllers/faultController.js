@@ -1,9 +1,15 @@
 import createHttpError from 'http-errors';
 import { Fault } from '../models/fault.js';
 import { Plant } from '../models/plant.js';
-import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
-import mongoose from 'mongoose';
 import { PlantPart } from '../models/part.js';
+import { User } from '../models/user.js';
+import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
+import { emitFaultCreated } from '../socket/emitters.js';
+import {
+  sendNewFaultEmail,
+  sendSicurezzaHseEmail,
+} from '../services/email/index.js';
+import { logFromRequest } from '../services/auditLog.js';
 
 export const createFault = async (req, res) => {
   const {
@@ -68,7 +74,7 @@ export const createFault = async (req, res) => {
       {
         action: 'created',
         userId: userId,
-        userName: req.user?.name || 'Operator',
+        userName: req.user?.fullName || 'Operator',
         timestamp: new Date(),
       },
     ],
@@ -78,9 +84,32 @@ export const createFault = async (req, res) => {
     .populate({ path: 'plantId', select: 'namePlant code' })
     .populate({ path: 'partId', select: 'namePlantPart codePlantPart' });
 
-  await mongoose.connection
-    .collection('original_faults')
-    .insertOne(newFault.toObject());
+  emitFaultCreated(populatedFault);
+
+  await logFromRequest(req, {
+    action: 'fault.create',
+    targetType: 'Fault',
+    targetId: populatedFault._id,
+    summary: `Created fault ${faultId} for plant ${populatedFault.plantId?.namePlant ?? plantId}`,
+    meta: { plantId, partId, typeFault },
+  });
+
+  setImmediate(() => {
+    (async () => {
+      const [managers, hseUsers] = await Promise.all([
+        User.find({ role: 'manager', status: 'active' }),
+        typeFault === 'Safety'
+          ? User.find({ role: 'safety', status: 'active' })
+          : Promise.resolve([]),
+      ]);
+      await sendNewFaultEmail(populatedFault, managers);
+      if (typeFault === 'Safety') {
+        await sendSicurezzaHseEmail(populatedFault, hseUsers);
+      }
+    })().catch((err) =>
+      console.error('[email] post-create dispatch failed', err.message),
+    );
+  });
 
   return res.status(201).json(populatedFault);
 };
@@ -89,6 +118,7 @@ export const getAllFault = async (req, res) => {
   const {
     faultId,
     nameOperator,
+    createdById,
     priority,
     plant,
     plantPart,
@@ -96,6 +126,10 @@ export const getAllFault = async (req, res) => {
     dataCreated,
     timeCreated,
     deadline,
+    plannedDate,
+    statusFault,
+    assignedTo,
+    assignedToEmpty,
     sort = 'desc',
     sortBy = 'dataCreated',
     sortOrder = 'asc',
@@ -109,9 +143,26 @@ export const getAllFault = async (req, res) => {
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
+  if (createdById) query.userId = createdById;
   if (typeFault) query.typeFault = typeFault;
   if (dataCreated) query.dataCreated = dataCreated;
   if (timeCreated) query.timeCreated = timeCreated;
+  if (plannedDate) query.plannedDate = plannedDate;
+  // assignedToEmpty takes precedence — pool fault filter
+  if (assignedToEmpty === true || assignedToEmpty === 'true') {
+    query.assignedMaintainers = { $size: 0 };
+  } else if (assignedTo) {
+    query.assignedMaintainers = assignedTo;
+  }
+  if (statusFault) {
+    const list = Array.isArray(statusFault)
+      ? statusFault
+      : String(statusFault)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    query.statusFault = list.length > 1 ? { $in: list } : list[0];
+  }
 
   if (plant) {
     const plants = await Plant.find({
@@ -145,6 +196,7 @@ export const getAllFault = async (req, res) => {
     Fault.find(query)
       .populate({ path: 'plantId', select: 'namePlant code' })
       .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
+      .populate({ path: 'assignedMaintainers', select: 'fullName email' })
       .sort({ createdAt: sortOption })
       .skip(skip)
       .limit(perPage)
@@ -168,7 +220,8 @@ export const getFaultById = async (req, res) => {
 
   const fault = await Fault.findById(faultId)
     .populate({ path: 'plantId', select: 'namePlant code' })
-    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' });
+    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
+    .populate({ path: 'assignedMaintainers', select: 'fullName email' });
 
   if (!fault) {
     throw createHttpError(404, 'Fault not found');

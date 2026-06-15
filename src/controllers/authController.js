@@ -35,10 +35,12 @@ export const registerUser = async (req, res) => {
     personalCode: role === 'operator' ? personalCode : undefined,
     role,
   });
-  const newSession = await createSession(newUser._id);
-  setSessionCookies(res, newSession);
 
-  res.status(201).json(newUser);
+  res.status(201).json({
+    success: true,
+    message: 'User registered successfully',
+    data: newUser,
+  });
 };
 
 export const refreshUserSession = async (req, res, next) => {

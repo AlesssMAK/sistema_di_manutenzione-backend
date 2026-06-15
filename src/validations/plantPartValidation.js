@@ -36,5 +36,26 @@ export const getPartsSchema = {
     page: Joi.number().integer().min(1).default(1),
     perPage: Joi.number().integer().min(1).default(12),
     search: Joi.string().allow('').optional(),
+    status: Joi.string()
+      .valid(...Object.values(STATUS))
+      .optional(),
+  }),
+};
+
+export const deletePlantPartSchema = {
+  [Segments.PARAMS]: Joi.object({
+    plantId: Joi.string().required(),
+    plantPartId: Joi.string().custom(objectIdValidator).required(),
+  }),
+};
+
+export const updatePlantPartSchema = {
+  ...deletePlantPartSchema,
+  [Segments.BODY]: Joi.object({
+    namePlantPart: Joi.string().trim().optional(),
+    codePlantPart: Joi.string().trim().optional(),
+    status: Joi.string()
+      .valid(...Object.values(STATUS))
+      .optional(),
   }),
 };

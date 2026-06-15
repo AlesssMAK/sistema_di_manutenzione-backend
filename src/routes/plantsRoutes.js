@@ -1,8 +1,13 @@
 import { Router } from 'express';
-import { createPlantSchema } from '../validations/plantValidation.js';
+import {
+  createPlantSchema,
+  deletePlantSchema,
+  updatePlantSchema,
+} from '../validations/plantValidation.js';
 import { celebrate } from 'celebrate';
 import {
   createPlant,
+  deletePlant,
   getAllPlants,
   updatePlant,
 } from '../controllers/plantController.js';
@@ -26,7 +31,16 @@ router.put(
   '/plants/:plantId',
   authenticate,
   requireAdmin,
+  celebrate(updatePlantSchema),
   ctrlWrapper(updatePlant),
+);
+
+router.delete(
+  '/plants/:plantId',
+  authenticate,
+  requireAdmin,
+  celebrate(deletePlantSchema),
+  ctrlWrapper(deletePlant),
 );
 
 export default router;
