@@ -210,6 +210,20 @@ export const claimFaultSchema = {
   }),
 };
 
+export const reassignFaultSchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    // New full list of assignees (empty array = move back to pool).
+    // Backend diffs against the current value to figure out who was
+    // added and who was removed.
+    assignedMaintainers: Joi.array()
+      .items(Joi.string().custom(objectIdValidator))
+      .required(),
+  }),
+};
+
 export const updateFaultBySafetySchema = {
   [Segments.PARAMS]: Joi.object({
     faultId: Joi.string().custom(objectIdValidator).required(),

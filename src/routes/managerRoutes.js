@@ -1,8 +1,16 @@
 import { Router } from 'express';
-import { addedByManagerSchema } from '../validations/faultValidation.js';
+import {
+  addedByManagerSchema,
+  reassignFaultSchema,
+} from '../validations/faultValidation.js';
 import { celebrate } from 'celebrate';
 // import { authenticate } from '../middleware/authenticate';
-import { addFault } from '../controllers/managerController.js';
+import {
+  addFault,
+  reassignFault,
+} from '../controllers/managerController.js';
+import { ctrlWrapper } from '../utils/ctrlWrapper.js';
+
 const router = Router();
 
 router.post(
@@ -10,6 +18,13 @@ router.post(
   // authenticate,
   celebrate(addedByManagerSchema),
   addFault,
+);
+
+router.patch(
+  '/manager/fault/:faultId/reassign',
+  // authenticate,
+  celebrate(reassignFaultSchema),
+  ctrlWrapper(reassignFault),
 );
 
 export default router;
