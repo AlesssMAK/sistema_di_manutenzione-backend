@@ -1,4 +1,5 @@
 import createHttpError from 'http-errors';
+import mongoose from 'mongoose';
 import { Fault } from '../models/fault.js';
 import { Plant } from '../models/plant.js';
 import { PlantPart } from '../models/part.js';
@@ -228,4 +229,78 @@ export const getFaultById = async (req, res) => {
   }
 
   res.status(200).json(fault);
+};
+
+/**
+ * GET /faults/deadlines
+ *
+ * Aggregated per-day counts in a date range. Replaces the
+ * `?perPage=200` workaround on the maintenance-worker calendar
+ * (planned counts + overdue heatmap). Returns an array sorted by
+ * date so the calendar can render badges directly.
+ *
+ * `field` picks which Fault date column to aggregate on:
+ *   - 'plannedDate' — calendar's per-day planned-intervention badges
+ *   - 'deadline'    — overdue heatmap (combine with statusFault=Overdue)
+ *
+ * Both columns are stored as 'YYYY-MM-DD' strings on the model, so a
+ * lexicographic $gte/$lte filter is equivalent to chronological.
+ */
+export const getFaultDeadlines = async (req, res) => {
+  const {
+    dateFrom,
+    dateTo,
+    field = 'plannedDate',
+    statusFault,
+    priority,
+    assignedTo,
+    assignedToEmpty,
+  } = req.query;
+
+  const match = {
+    [field]: { $gte: dateFrom, $lte: dateTo, $ne: null },
+  };
+
+  if (priority) match.priority = priority;
+
+  if (statusFault) {
+    const list = Array.isArray(statusFault)
+      ? statusFault
+      : String(statusFault)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    match.statusFault = list.length > 1 ? { $in: list } : list[0];
+  }
+
+  // assignedToEmpty takes precedence over assignedTo (pool filter).
+  if (assignedToEmpty === true || assignedToEmpty === 'true') {
+    match.assignedMaintainers = { $size: 0 };
+  } else if (assignedTo) {
+    match.assignedMaintainers = new mongoose.Types.ObjectId(assignedTo);
+  }
+
+  const pipeline = [
+    { $match: match },
+    {
+      $group: {
+        _id: `$${field}`,
+        count: { $sum: 1 },
+        low: { $sum: { $cond: [{ $eq: ['$priority', 'Low'] }, 1, 0] } },
+        medium: { $sum: { $cond: [{ $eq: ['$priority', 'Medium'] }, 1, 0] } },
+        high: { $sum: { $cond: [{ $eq: ['$priority', 'High'] }, 1, 0] } },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ];
+
+  const aggregated = await Fault.aggregate(pipeline);
+
+  const dates = aggregated.map((row) => ({
+    date: row._id,
+    count: row.count,
+    byPriority: { Low: row.low, Medium: row.medium, High: row.high },
+  }));
+
+  res.status(200).json({ field, dateFrom, dateTo, dates });
 };
