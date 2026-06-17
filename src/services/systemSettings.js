@@ -19,11 +19,31 @@ const PUBLIC_FIELDS = [
 export const ensureSingleton = async () => {
   const existing = await SystemSettings.findById(SYSTEM_SETTINGS_ID);
   if (existing) {
+    let dirty = false;
+
     if (!existing.timezone) {
       existing.timezone = systemSettingsDefaults.timezone;
-      await existing.save();
+      dirty = true;
       console.log(`✅ SystemSettings backfilled timezone='${existing.timezone}'`);
     }
+
+    // Backfill email triggers that were added to the model after
+    // the singleton document was first created. Without this, fresh
+    // schema fields stay undefined for existing deployments and
+    // guard() blocks the corresponding emails (onSuspended was the
+    // visible case; onReassign would have the same fate).
+    if (!existing.email) existing.email = {};
+    if (!existing.email.triggers) existing.email.triggers = {};
+    const defaultTriggers = systemSettingsDefaults.email.triggers ?? {};
+    for (const [key, value] of Object.entries(defaultTriggers)) {
+      if (existing.email.triggers[key] === undefined) {
+        existing.email.triggers[key] = value;
+        dirty = true;
+        console.log(`✅ SystemSettings backfilled email.triggers.${key}=${value}`);
+      }
+    }
+
+    if (dirty) await existing.save();
     cached = existing.toObject();
     console.log('✅ SystemSettings loaded');
     return cached;

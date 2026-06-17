@@ -62,6 +62,7 @@ const systemSettingsSchema = new Schema(
         onNewFault: { type: Boolean, default: true },
         onSicurezzaHse: { type: Boolean, default: true },
         onDirectMessage: { type: Boolean, default: true },
+        onSuspended: { type: Boolean, default: true },
         onReassign: { type: Boolean, default: true },
       },
       rateLimits: {
