@@ -121,6 +121,47 @@ export const getFaultByIdSchema = {
   }),
 };
 
+export const getDeadlinesSchema = {
+  [Segments.QUERY]: Joi.object({
+    dateFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'dateFrom must be in format YYYY-MM-DD',
+      }),
+    dateTo: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'dateTo must be in format YYYY-MM-DD',
+      }),
+    // Which Fault field to aggregate on. plannedDate covers the
+    // calendar's per-day badges; deadline covers the overdue heatmap.
+    field: Joi.string().valid('plannedDate', 'deadline').default('plannedDate'),
+    statusFault: Joi.string()
+      .trim()
+      .custom((value, helpers) => {
+        const allowed = Object.values(STATUS_FAULT);
+        const list = value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (!list.every((s) => allowed.includes(s))) {
+          return helpers.message(
+            `statusFault must contain only: ${allowed.join(', ')}`,
+          );
+        }
+        return value;
+      })
+      .optional(),
+    priority: Joi.string()
+      .valid(...Object.values(TYPE_PRIORITY))
+      .optional(),
+    assignedTo: Joi.string().custom(objectIdValidator).optional(),
+    assignedToEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
+  }),
+};
+
 export const addedByManagerSchema = {
   [Segments.BODY]: Joi.object({
     faultId: Joi.string().required(),
@@ -207,6 +248,20 @@ export const updateFaultByMaintenanceWorkerSchema = {
 export const claimFaultSchema = {
   [Segments.PARAMS]: Joi.object({
     faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+};
+
+export const reassignFaultSchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    // New full list of assignees (empty array = move back to pool).
+    // Backend diffs against the current value to figure out who was
+    // added and who was removed.
+    assignedMaintainers: Joi.array()
+      .items(Joi.string().custom(objectIdValidator))
+      .required(),
   }),
 };
 

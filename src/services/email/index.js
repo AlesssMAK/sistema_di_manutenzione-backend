@@ -15,6 +15,8 @@ const subjectFor = (template, ctx) => {
       return `[SICUREZZA] Nuova segnalazione: ${ctx.faultId}`;
     case 'suspended':
       return `Intervento sospeso: ${ctx.faultId}`;
+    case 'reassign':
+      return `Intervento riassegnato: ${ctx.faultId}`;
     case 'directMessage':
       return ctx.subject
         ? `[MMS] ${ctx.subject}`
@@ -145,6 +147,25 @@ export const sendSuspendedEmail = async (fault, manager, worker) => {
       suspensionReason: fault.suspensionReason ?? '',
       materialRequest: fault.materialRequest ?? '',
       link: buildLink('manager', fault._id),
+    }),
+  });
+};
+
+export const sendReassignEmail = async (fault, removedMaintainers) => {
+  const gate = await guard('onReassign');
+  if (!gate.ok) return { skipped: true, reason: gate.reason };
+  if (!removedMaintainers?.length)
+    return { skipped: true, reason: 'no_removed_maintainers' };
+
+  return sendBulk({
+    recipients: removedMaintainers,
+    template: 'reassign',
+    from: gate.settings.email.from,
+    contextFor: (recipient) => ({
+      ...baseFaultContext(fault),
+      recipientName: recipient.fullName ?? recipient.name ?? '',
+      managerComment: fault.managerComment ?? '',
+      link: buildLink('maintenance-worker', fault._id),
     }),
   });
 };
