@@ -1,5 +1,5 @@
-import { PlantPart } from '../models/part.js';
 import { Plant } from '../models/plant.js';
+import { STATUS } from '../constants/status.js';
 import createHttpError from 'http-errors';
 
 export const createPlant = async (req, res) => {
@@ -126,20 +126,36 @@ export const updatePlant = async (req, res) => {
 };
 
 export const deletePlant = async (req, res) => {
+  // Soft-delete only. Previously this also ran
+  // `PlantPart.deleteMany({ plantId })` — one click on the admin's
+  // Elimina button could silently obliterate every historical
+  // Fault.partId reference for the whole plant. Now we just flip
+  // the plant's status; its parts keep their own status untouched
+  // (operator dropdowns already filter by plant.status === active
+  // upstream, so the parts effectively disappear from selection
+  // anyway).
   const { plantId } = req.params;
-  const plant = await Plant.findByIdAndDelete(plantId);
+
+  const plant = await Plant.findById(plantId);
 
   if (!plant) {
     throw createHttpError(404, 'Plant not found');
   }
 
-  const { deletedCount } = await PlantPart.deleteMany({ plantId });
+  if (plant.status === STATUS.DEACTIVATED) {
+    return res.status(200).json({
+      success: true,
+      message: 'Plant already deactivated',
+      data: plant,
+    });
+  }
+
+  plant.status = STATUS.DEACTIVATED;
+  await plant.save();
+
   res.status(200).json({
     success: true,
-    message: 'Plant deleted successfully',
-    data: {
-      plant,
-      deletedPartsCount: deletedCount,
-    },
+    message: 'Plant deactivated successfully',
+    data: plant,
   });
 };

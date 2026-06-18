@@ -26,4 +26,14 @@ plantPartSchema.index(
   { namePlantPart: 'PlantPartTextIndex' },
 );
 
+// Codes must be unique within a plant but two different plants can
+// freely share the same code — e.g. each line numbers its motors
+// 'MOT-01', 'MOT-02', matching what's stenciled on the hardware.
+// Application-level checks in the controller scope by plantId; this
+// index is the DB-level guard against races and direct mongo writes.
+plantPartSchema.index(
+  { plantId: 1, codePlantPart: 1 },
+  { unique: true, name: 'PlantPart_plantId_code_unique' },
+);
+
 export const PlantPart = model('PlantPart', plantPartSchema);

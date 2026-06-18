@@ -17,7 +17,7 @@ import maintenanceWorkerRoutes from './routes/maintenanceWorkerRoutes.js';
 import historyFaultRoutes from './routes/historyFaultRoutes.js';
 import generatorsRoute from './routes/generatorsRoute.js';
 import faultRoutes from './routes/faultRoutes.js';
-import { authenticate } from './middleware/authenticate.js';
+import { authenticate as adminAuthenticate } from './admin/auth.js';
 import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
 import { adminOptions } from './admin/admin.config.js';
@@ -92,7 +92,11 @@ const createAdminJS = (app) => {
   const adminRouter = AdminJSExpress.buildAuthenticatedRouter(
     admin,
     {
-      authenticate,
+      // AdminJS expects (email, password) → user | null. The session
+      // middleware lives under the same name but takes
+      // (req, res, next) — passing it here would have made every
+      // AdminJS login attempt throw on `req.cookies`.
+      authenticate: adminAuthenticate,
       cookieName: 'adminjs',
       cookiePassword: process.env.ADMIN_COOKIE_SECRET,
     },

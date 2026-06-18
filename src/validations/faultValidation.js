@@ -1,7 +1,7 @@
 import { Joi, Segments } from 'celebrate';
 import { TYPE_FAULT } from '../constants/typeFault.js';
 import { isValidObjectId } from 'mongoose';
-import moment from 'moment';
+import { DateTime } from 'luxon';
 import { STATUS_FAULT } from '../constants/statusFault.js';
 import { TYPE_PRIORITY } from '../constants/typePriority.js';
 
@@ -18,10 +18,11 @@ export const createFaultSchema = {
       .iso()
       .required()
       .custom((value, helpers) => {
-        const today = moment().startOf('day');
-        const date = moment(value, 'YYYY-MM-DD');
-        if (!date.isValid()) return helpers.error('any.invalid');
-        if (date.isBefore(today))
+        // Joi.date().iso() already parsed value into a Date object.
+        const today = DateTime.now().startOf('day');
+        const date = DateTime.fromJSDate(value).startOf('day');
+        if (!date.isValid) return helpers.error('any.invalid');
+        if (date < today)
           return helpers.message('plannedDate must be today or later');
         return value;
       }), //тільки дата, без часу
@@ -173,10 +174,10 @@ export const addedByManagerSchema = {
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
       .required()
       .custom((value, helpers) => {
-        const today = moment().startOf('day');
-        const date = moment(value, 'YYYY-MM-DD');
-        if (!date.isValid()) return helpers.error('any.invalid');
-        if (date.isBefore(today))
+        const today = DateTime.now().startOf('day');
+        const date = DateTime.fromISO(value);
+        if (!date.isValid) return helpers.error('any.invalid');
+        if (date < today)
           return helpers.message('plannedDate must be today or later');
         return value;
       })
@@ -193,10 +194,10 @@ export const addedByManagerSchema = {
       .required()
       .custom((value, helpers) => {
         const { plannedDate } = helpers.state.ancestors[0];
-        const start = moment(plannedDate, 'YYYY-MM-DD');
-        const end = moment(value, 'YYYY-MM-DD');
-        if (!end.isValid()) return helpers.error('any.invalid');
-        if (end.isBefore(start))
+        const start = DateTime.fromISO(plannedDate);
+        const end = DateTime.fromISO(value);
+        if (!end.isValid) return helpers.error('any.invalid');
+        if (end < start)
           return helpers.message(
             ' deadline must be after or equal to plannedDate',
           );
@@ -261,6 +262,21 @@ export const reassignFaultSchema = {
     // added and who was removed.
     assignedMaintainers: Joi.array()
       .items(Joi.string().custom(objectIdValidator))
+      .required(),
+  }),
+};
+
+export const addMaintainersSchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    // Only the new maintainers to append; controller rejects ids
+    // already on the fault so the FE doesn't have to recompute the
+    // diff itself.
+    additionalMaintainers: Joi.array()
+      .items(Joi.string().custom(objectIdValidator))
+      .min(1)
       .required(),
   }),
 };

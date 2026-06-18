@@ -1,6 +1,7 @@
 import { PlantPart } from '../models/part.js';
 import createHttpError from 'http-errors';
 import { Plant } from '../models/plant.js';
+import { STATUS } from '../constants/status.js';
 
 export const createPlantParts = async (req, res, next) => {
   try {
@@ -11,12 +12,17 @@ export const createPlantParts = async (req, res, next) => {
     }
 
     const codes = parts.map((p) => p.codePlantPart);
-    const existing = await PlantPart.find({ codePlantPart: { $in: codes } });
+    // Scope the duplicate-check to this plant — two plants are free
+    // to share codes (matches the new compound index in the model).
+    const existing = await PlantPart.find({
+      plantId,
+      codePlantPart: { $in: codes },
+    });
 
     if (existing.length > 0) {
       throw createHttpError(
         409,
-        `Plant parts with these codes already exist: ${existing
+        `Plant parts with these codes already exist on this plant: ${existing
           .map((e) => e.codePlantPart)
           .join(', ')}`,
       );
@@ -108,13 +114,14 @@ export const updatePlantPart = async (req, res) => {
   if (codePlantPart && codePlantPart !== plantPart.codePlantPart) {
     const existingPlantPart = await PlantPart.findOne({
       _id: { $ne: plantPartId },
+      plantId: plantPart.plantId,
       codePlantPart,
     });
 
     if (existingPlantPart) {
       throw createHttpError(
         409,
-        `A plant part with code "${codePlantPart}" already exists`,
+        `A plant part with code "${codePlantPart}" already exists on this plant`,
       );
     }
   }
@@ -135,15 +142,34 @@ export const updatePlantPart = async (req, res) => {
 };
 
 export const deletePlantPart = async (req, res) => {
+  // Soft-delete: existing Fault records reference partId via populate.
+  // A hard delete would silently corrupt their UI (populate returns
+  // null, the page renders "—" instead of the real component name)
+  // and break audit traces. Status flip preserves the link, removes
+  // the entry from operator dropdowns (FE already filters active),
+  // and is reversible via the reactivate toggle.
   const { plantPartId } = req.params;
-  const plantPart = await PlantPart.findByIdAndDelete(plantPartId);
+
+  const plantPart = await PlantPart.findById(plantPartId);
 
   if (!plantPart) {
     throw createHttpError(404, 'Plant part not found');
   }
 
+  if (plantPart.status === STATUS.DEACTIVATED) {
+    return res.status(200).json({
+      success: true,
+      message: 'Plant part already deactivated',
+      data: plantPart,
+    });
+  }
+
+  plantPart.status = STATUS.DEACTIVATED;
+  await plantPart.save();
+
   res.status(200).json({
     success: true,
-    message: 'Plant part deleted successfully',
+    message: 'Plant part deactivated successfully',
+    data: plantPart,
   });
 };

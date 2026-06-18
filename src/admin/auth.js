@@ -1,35 +1,28 @@
 import { User } from '../models/user.js';
 import bcrypt from 'bcrypt';
 
-export const authenticate = async (phone, password) => {
+export const authenticate = async (email, password) => {
   try {
-    const user = await User.findOne({ phone });
+    // AdminJS calls this with the credentials from its own login
+    // form. The User model identifies people by email (not phone),
+    // so we look up by email here — without this fix AdminJS could
+    // never authenticate anyone.
+    const user = await User.findOne({ email });
 
-    if (!user) {
-      console.log('User not found');
-      return null;
-    }
-    if (user.role !== 'admin') {
-      console.log('User is not admin');
-      return null;
-    }
+    if (!user) return null;
+    if (user.role !== 'admin') return null;
+
     const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      console.log('Password mismatch');
-      return null;
-    }
-    console.log('Admin authenticated:', user.phone);
+    if (!isMatch) return null;
 
     return {
-      phone: user.phone,
-      name: user.name,
       email: user.email,
+      fullName: user.fullName,
       role: user.role,
       _id: user._id,
     };
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('[admin-auth] authentication error', error.message);
     return null;
   }
 };

@@ -17,23 +17,26 @@ export const createSession = async (userId) => {
   });
 };
 export const setSessionCookies = (res, session) => {
+  // Mirror what clearSessionCookies already does — secure +
+  // sameSite='none' only in production. Hard-coding them broke any
+  // non-https client (supertest in tests, plain-HTTP curl during
+  // local dev — browsers exempt localhost but only the browser).
+  const baseOptions = { httpOnly: true };
+  if (isProd) {
+    baseOptions.secure = true;
+    baseOptions.sameSite = 'none';
+  }
+
   res.cookie('accessToken', session.accessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    ...baseOptions,
     maxAge: FIFTEEN_MINUTES,
   });
   res.cookie('refreshToken', session.refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    ...baseOptions,
     maxAge: THIRTY_DAYS,
   });
-
   res.cookie('sessionId', session._id, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    ...baseOptions,
     maxAge: THIRTY_DAYS,
   });
 };

@@ -62,6 +62,14 @@ const messageSchema = new Schema(
       maxlength: 5000,
     },
 
+    // Cloudinary secure_urls for image attachments. Capped at 5 by
+    // the multer middleware in messageRoutes; the same limit as
+    // Fault.img to keep the upload UX symmetric.
+    img: {
+      type: [String],
+      default: [],
+    },
+
     readBy: {
       type: [{ type: Schema.Types.ObjectId, ref: 'User' }],
       default: [],
