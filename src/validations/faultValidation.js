@@ -265,6 +265,21 @@ export const reassignFaultSchema = {
   }),
 };
 
+export const addMaintainersSchema = {
+  [Segments.PARAMS]: Joi.object({
+    faultId: Joi.string().custom(objectIdValidator).required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    // Only the new maintainers to append; controller rejects ids
+    // already on the fault so the FE doesn't have to recompute the
+    // diff itself.
+    additionalMaintainers: Joi.array()
+      .items(Joi.string().custom(objectIdValidator))
+      .min(1)
+      .required(),
+  }),
+};
+
 export const updateFaultBySafetySchema = {
   [Segments.PARAMS]: Joi.object({
     faultId: Joi.string().custom(objectIdValidator).required(),

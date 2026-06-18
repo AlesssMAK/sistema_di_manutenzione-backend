@@ -233,3 +233,95 @@ export const reassignFault = async (req, res) => {
 
   return res.status(200).json(populatedFault);
 };
+
+/**
+ * POST /manager/fault/:faultId/add-maintainers
+ *
+ * Append-only counterpart to reassign: extends the existing
+ * assignedMaintainers list without dropping anyone. The semantic
+ * split matters for UX — "add help" reads very differently from
+ * "swap people out", and the audit/history trail benefits from the
+ * intent being explicit. Returns 400 if any id is already on the
+ * fault (the caller should filter those out client-side).
+ */
+export const addMaintainers = async (req, res) => {
+  const { faultId } = req.params;
+  const { additionalMaintainers = [] } = req.body;
+
+  const fault = await Fault.findById(faultId);
+  if (!fault) {
+    return res.status(404).json({ message: 'Fault not found' });
+  }
+
+  const previousIds = (fault.assignedMaintainers ?? []).map((m) =>
+    typeof m === 'string' ? m : String(m._id ?? m),
+  );
+  const prevSet = new Set(previousIds);
+  const addedIds = [...new Set(additionalMaintainers.map(String))];
+
+  const duplicates = addedIds.filter((id) => prevSet.has(id));
+  if (duplicates.length > 0) {
+    return res.status(400).json({
+      message: 'One or more maintainers are already assigned to this fault',
+      duplicates,
+    });
+  }
+
+  const newWorkers = await User.find({
+    _id: { $in: addedIds },
+    role: 'maintenanceWorker',
+  });
+  if (newWorkers.length !== addedIds.length) {
+    return res.status(400).json({
+      message: 'One or more selected users are not maintenance workers',
+    });
+  }
+
+  fault.assignedMaintainers = [
+    ...(fault.assignedMaintainers ?? []),
+    ...addedIds.map((id) =>
+      mongoose.Types.ObjectId.createFromHexString(id.trim()),
+    ),
+  ];
+
+  const managerId = req.user?._id;
+  const managerName = req.user?.fullName || 'Manager';
+  fault.history.push({
+    action: 'maintainers_added_by_manager',
+    userId: managerId,
+    userName: managerName,
+    changes: { added: addedIds },
+    timestamp: new Date(),
+  });
+
+  await fault.save();
+
+  const populatedFault = await Fault.findById(fault._id)
+    .populate({ path: 'plantId', select: 'namePlant code' })
+    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
+    .populate({ path: 'assignedMaintainers', select: 'fullName email' });
+
+  emitFaultUpdated(populatedFault);
+  for (const maintainer of populatedFault.assignedMaintainers ?? []) {
+    emitToUser(maintainer._id, 'fault:updated', populatedFault);
+  }
+
+  await logFromRequest(req, {
+    action: 'fault.maintainersAdded',
+    targetType: 'Fault',
+    targetId: populatedFault._id,
+    summary: `Added ${addedIds.length} maintainer(s) to fault ${populatedFault.faultId}`,
+    meta: { added: addedIds },
+  });
+
+  setImmediate(() => {
+    const added = (populatedFault.assignedMaintainers ?? []).filter((m) =>
+      addedIds.includes(String(m._id)),
+    );
+    sendAssignmentEmail(populatedFault, added).catch((err) =>
+      console.error('[email] post-add-maintainers dispatch failed', err.message),
+    );
+  });
+
+  return res.status(200).json(populatedFault);
+};
