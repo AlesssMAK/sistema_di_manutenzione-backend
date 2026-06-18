@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { celebrate } from 'celebrate';
 
 import { authenticate } from '../middleware/authenticate.js';
+import { upload } from '../middleware/multer.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 
 import {
@@ -28,14 +29,19 @@ const router = Router();
 
 router.use('/messages', authenticate);
 
+// multer runs BEFORE celebrate so multipart text fields are parsed
+// into req.body before the Joi validators read them; the 5-file cap
+// here matches the limit baked into the model + UploadImages UI.
 router.post(
   '/messages/direct',
+  upload.array('img', 5),
   celebrate(createDirectMessageSchema),
   ctrlWrapper(createDirectMessage),
 );
 
 router.post(
   '/messages/broadcast',
+  upload.array('img', 5),
   celebrate(createBroadcastSchema),
   ctrlWrapper(createBroadcast),
 );
@@ -62,6 +68,7 @@ router.patch(
 
 router.post(
   '/messages/:id/reply',
+  upload.array('img', 5),
   celebrate(replyMessageSchema),
   ctrlWrapper(replyToMessage),
 );

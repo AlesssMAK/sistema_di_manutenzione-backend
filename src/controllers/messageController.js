@@ -3,6 +3,21 @@ import mongoose from 'mongoose';
 
 import { DIRECT_SENDER_ROLES, MESSAGE_TYPE } from '../constants/message.js';
 import { Message } from '../models/message.js';
+import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
+
+// Upload every multer-buffered image to Cloudinary and return the
+// secure URLs in the same order the FE sent them. Returns [] when
+// no files are attached so callers can splice straight into the
+// Message.create payload without branching.
+const uploadAttachments = async (req) => {
+  if (!req.files || req.files.length === 0) return [];
+  const urls = [];
+  for (const file of req.files) {
+    const result = await saveFileToCloudinary(file.buffer, 'messages');
+    urls.push(result.secure_url);
+  }
+  return urls;
+};
 import { User } from '../models/user.js';
 
 import { logFromRequest } from '../services/auditLog.js';
@@ -32,6 +47,8 @@ export const createDirectMessage = async (req, res) => {
     throw createHttpError(400, 'Recipient is not active');
   }
 
+  const img = await uploadAttachments(req);
+
   const message = await Message.create({
     type: MESSAGE_TYPE.DIRECT,
     authorId: req.user._id,
@@ -40,6 +57,7 @@ export const createDirectMessage = async (req, res) => {
     recipientId,
     subject: subject ?? '',
     body,
+    img,
   });
 
   const populated = await populateAuthor(Message.findById(message._id)).lean();
@@ -71,6 +89,8 @@ export const createBroadcast = async (req, res) => {
   const ttlDays = settings?.messaging?.broadcastTtlDays ?? 30;
   const expireAt = computeBroadcastExpireAt(ttlDays);
 
+  const img = await uploadAttachments(req);
+
   const message = await Message.create({
     type:
       target === 'role'
@@ -83,6 +103,7 @@ export const createBroadcast = async (req, res) => {
     subject: subject ?? '',
     body,
     expireAt,
+    img,
   });
 
   const populated = await populateAuthor(Message.findById(message._id)).lean();
@@ -283,6 +304,8 @@ export const replyToMessage = async (req, res) => {
     throw createHttpError(400, 'Original author is not active');
   }
 
+  const img = await uploadAttachments(req);
+
   const reply = await Message.create({
     type: MESSAGE_TYPE.DIRECT,
     authorId: userId,
@@ -292,6 +315,7 @@ export const replyToMessage = async (req, res) => {
     subject: subject ?? '',
     body,
     replyToId: original._id,
+    img,
   });
 
   const populated = await populateAuthor(Message.findById(reply._id)).lean();
