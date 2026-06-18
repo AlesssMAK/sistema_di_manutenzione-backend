@@ -5,21 +5,11 @@ export const authenticate = async (phone, password) => {
   try {
     const user = await User.findOne({ phone });
 
-    if (!user) {
-      console.log('User not found');
-      return null;
-    }
-    if (user.role !== 'admin') {
-      console.log('User is not admin');
-      return null;
-    }
-    const isMatch = await bcrypt.compare(password, user.password);
+    if (!user) return null;
+    if (user.role !== 'admin') return null;
 
-    if (!isMatch) {
-      console.log('Password mismatch');
-      return null;
-    }
-    console.log('Admin authenticated:', user.phone);
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return null;
 
     return {
       phone: user.phone,
@@ -29,7 +19,7 @@ export const authenticate = async (phone, password) => {
       _id: user._id,
     };
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('[admin-auth] authentication error', error.message);
     return null;
   }
 };
