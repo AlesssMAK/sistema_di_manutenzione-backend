@@ -8,6 +8,12 @@ const redactValue = (value, depth = 0) => {
   if (value === null || value === undefined) return value;
   if (depth > MAX_DEPTH) return '[Truncated]';
 
+  // Mongo ObjectId → hex string, Buffer → hex. Without this they
+  // serialize into Mixed meta as a raw byte map ({ buffer: { 0: …,
+  // 1: … } }) that's useless in the audit detail view.
+  if (typeof value?.toHexString === 'function') return value.toHexString();
+  if (Buffer.isBuffer(value)) return value.toString('hex');
+
   if (Array.isArray(value)) {
     return value.slice(0, 50).map((item) => redactValue(item, depth + 1));
   }

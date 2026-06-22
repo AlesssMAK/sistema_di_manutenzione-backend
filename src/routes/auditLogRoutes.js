@@ -15,7 +15,7 @@ import {
 const router = Router();
 
 router.get(
-  '/admin/audit-log',
+  '/audit-log',
   authenticate,
   requireAdmin,
   celebrate(listAuditLogSchema),
@@ -23,7 +23,7 @@ router.get(
 );
 
 router.get(
-  '/admin/audit-log/:id',
+  '/audit-log/:id',
   authenticate,
   requireAdmin,
   celebrate(getAuditLogByIdSchema),

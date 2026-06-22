@@ -23,7 +23,7 @@ router.put(
   ctrlWrapper(updateProfile),
 );
 
-router.get('/users', ctrlWrapper(getAllUsers));
+router.get('/users', authenticate, ctrlWrapper(getAllUsers));
 
 router.get('/users/me', authenticate, getUser);
 

@@ -27,6 +27,7 @@ router.post(
 
 router.get(
   '/plants/:plantId/parts',
+  authenticate,
   celebrate(getPartsSchema),
   ctrlWrapper(getAllPlantParts),
 );

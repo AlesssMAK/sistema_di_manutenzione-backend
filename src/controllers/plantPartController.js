@@ -2,6 +2,7 @@ import { PlantPart } from '../models/part.js';
 import createHttpError from 'http-errors';
 import { Plant } from '../models/plant.js';
 import { STATUS } from '../constants/status.js';
+import { logFromRequest } from '../services/auditLog.js';
 
 export const createPlantParts = async (req, res, next) => {
   try {
@@ -12,8 +13,6 @@ export const createPlantParts = async (req, res, next) => {
     }
 
     const codes = parts.map((p) => p.codePlantPart);
-    // Scope the duplicate-check to this plant — two plants are free
-    // to share codes (matches the new compound index in the model).
     const existing = await PlantPart.find({
       plantId,
       codePlantPart: { $in: codes },
@@ -35,6 +34,19 @@ export const createPlantParts = async (req, res, next) => {
     }));
 
     const createdParts = await PlantPart.insertMany(partsToCreate);
+
+    // One audit entry per part keeps the per-row "Dettagli" link in
+    // the changes table meaningful; bulk-inserts that wrote a single
+    // entry would hide which codes were added.
+    for (const part of createdParts) {
+      await logFromRequest(req, {
+        action: 'part.create',
+        targetType: 'PartPlant',
+        targetId: part._id,
+        summary: `Created part ${part.namePlantPart} (${part.codePlantPart})`,
+        meta: { plantId },
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -134,6 +146,14 @@ export const updatePlantPart = async (req, res) => {
     },
   );
 
+  await logFromRequest(req, {
+    action: 'part.update',
+    targetType: 'PartPlant',
+    targetId: updatedPlantPart._id,
+    summary: `Updated part ${updatedPlantPart.namePlantPart} (${updatedPlantPart.codePlantPart})`,
+    meta: { changed: Object.keys(req.body ?? {}) },
+  });
+
   res.status(200).json({
     success: true,
     message: 'Plant part updated successfully',
@@ -141,7 +161,7 @@ export const updatePlantPart = async (req, res) => {
   });
 };
 
-export const deletePlantPart = async (req, res) => {
+export const deactivatedPlantPart = async (req, res) => {
   // Soft-delete: existing Fault records reference partId via populate.
   // A hard delete would silently corrupt their UI (populate returns
   // null, the page renders "—" instead of the real component name)
@@ -167,9 +187,31 @@ export const deletePlantPart = async (req, res) => {
   plantPart.status = STATUS.DEACTIVATED;
   await plantPart.save();
 
+  await logFromRequest(req, {
+    action: 'part.delete',
+    targetType: 'PartPlant',
+    targetId: plantPart._id,
+    summary: `Deactivated part ${plantPart.namePlantPart} (${plantPart.codePlantPart})`,
+  });
+
   res.status(200).json({
     success: true,
     message: 'Plant part deactivated successfully',
     data: plantPart,
+  });
+};
+
+export const deletePlantPart = async (req, res) => {
+  const { plantPartId } = req.params;
+
+  const plantPart = await PlantPart.findByIdAndDelete(plantPartId);
+
+  if (!plantPart) {
+    throw createHttpError(404, 'Plant part not found');
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Plant part deleted successfully',
   });
 };

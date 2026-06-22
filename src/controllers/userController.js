@@ -1,6 +1,7 @@
 import createHttpError from 'http-errors';
 import { User } from '../models/user.js';
 import bcrypt from 'bcrypt';
+import { logFromRequest, redactMeta } from '../services/auditLog.js';
 
 export const updateProfile = async (req, res) => {
   const targetUser = await User.findById(req.params.userId);
@@ -98,6 +99,21 @@ export const updateProfile = async (req, res) => {
 
   const { password: _password, ...userWithoutPassword } =
     updatedUser.toObject();
+
+  // status='deactivated'/'active' flips share the same endpoint —
+  // surface them via a more specific summary while keeping the
+  // single user.update action so audit listing stays predictable.
+  const statusFlip =
+    updates.status && updates.status !== targetUser.status
+      ? ` → status:${updates.status}`
+      : '';
+  await logFromRequest(req, {
+    action: 'user.update',
+    targetType: 'User',
+    targetId: updatedUser._id,
+    summary: `Updated ${updatedUser.fullName} (${updatedUser.role})${statusFlip}`,
+    meta: redactMeta({ changed: Object.keys(updates) }),
+  });
 
   res.status(200).json({
     success: true,

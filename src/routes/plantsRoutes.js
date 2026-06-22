@@ -25,7 +25,12 @@ router.post(
   createPlant,
 );
 
-router.get('/plants', celebrate(createPlantSchema), ctrlWrapper(getAllPlants));
+router.get(
+  '/plants',
+  authenticate,
+  celebrate(createPlantSchema),
+  ctrlWrapper(getAllPlants),
+);
 
 router.put(
   '/plants/:plantId',
