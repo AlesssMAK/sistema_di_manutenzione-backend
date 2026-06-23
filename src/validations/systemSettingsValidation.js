@@ -17,11 +17,16 @@ const workHoursSchema = Joi.object({
 const emailSchema = Joi.object({
   enabled: Joi.boolean(),
   from: Joi.string().trim().email({ tlds: { allow: false } }),
+  // Must mirror systemSettings model email.triggers — celebrate
+  // rejects unknown keys, so a trigger missing here can't be saved
+  // from the admin UI. onSuspended + onReassign were absent.
   triggers: Joi.object({
     onAssignment: Joi.boolean(),
     onNewFault: Joi.boolean(),
     onSicurezzaHse: Joi.boolean(),
     onDirectMessage: Joi.boolean(),
+    onSuspended: Joi.boolean(),
+    onReassign: Joi.boolean(),
   }),
   rateLimits: Joi.object({
     perRecipientPerHour: Joi.number().integer().min(0).max(1000),

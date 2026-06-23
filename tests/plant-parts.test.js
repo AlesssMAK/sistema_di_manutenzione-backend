@@ -83,7 +83,14 @@ describe('plant parts', () => {
     });
   });
 
-  describe('soft delete', () => {
+  // SKIPPED: DELETE semantics are being reworked. The Phase 9 soft-
+  // delete behaviour these tests assert was replaced by a hard
+  // delete (deletePlant/deletePlantPart) — kept for the "machine
+  // created but parts weren't → remove the machine" rollback flow,
+  // which the user is still implementing. Deactivation now lives on
+  // the separate deactivated*/update-status path. Re-enable (and
+  // point at the right endpoint) once that design is finalized.
+  describe.skip('soft delete', () => {
     test('DELETE /plants/:plantId/parts/:partId flips status to deactivated, keeps doc', async () => {
       const plant = await createPlant();
       const part = await createPlantPart(plant);

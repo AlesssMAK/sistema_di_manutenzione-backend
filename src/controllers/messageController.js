@@ -23,6 +23,7 @@ import { User } from '../models/user.js';
 
 import { logFromRequest } from '../services/auditLog.js';
 import { sendDirectMessageEmail } from '../services/email/index.js';
+import { sendPushToUser } from '../services/push/index.js';
 import { computeBroadcastExpireAt } from '../services/message.js';
 import { getSettings } from '../services/systemSettings.js';
 import { emitMessageNew } from '../socket/emitters.js';
@@ -69,6 +70,13 @@ export const createDirectMessage = async (req, res) => {
     sendDirectMessageEmail(populated, recipient).catch((err) =>
       console.error('[email] direct message failed', err.message),
     );
+
+    sendPushToUser(recipientId, {
+      title: `Messaggio da ${req.user.fullName}`,
+      body: subject || body.slice(0, 120),
+      url: '/messages',
+      tag: `msg-${message._id}`,
+    }).catch((err) => console.error('[push] direct message failed', err.message));
   });
 
   logFromRequest(req, {

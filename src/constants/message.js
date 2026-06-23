@@ -6,8 +6,12 @@ export const MESSAGE_TYPE = {
 
 export const MESSAGE_TYPES = Object.values(MESSAGE_TYPE);
 
-// Roles allowed to send a direct message (operator excluded — shared inbox).
+// Roles allowed to send AND receive direct messages. Operators are
+// included so they can report directly to any role (and see replies
+// in their inbox) — the same gate guards createDirectMessage and
+// listInbox, so adding operator here opens both.
 export const DIRECT_SENDER_ROLES = [
+  'operator',
   'admin',
   'manager',
   'maintenanceWorker',

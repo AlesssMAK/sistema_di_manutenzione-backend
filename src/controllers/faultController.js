@@ -11,6 +11,7 @@ import {
   sendSicurezzaHseEmail,
 } from '../services/email/index.js';
 import { logFromRequest } from '../services/auditLog.js';
+import { sendPushToRole } from '../services/push/index.js';
 
 export const createFault = async (req, res) => {
   const {
@@ -110,6 +111,25 @@ export const createFault = async (req, res) => {
     })().catch((err) =>
       console.error('[email] post-create dispatch failed', err.message),
     );
+
+    // Browser push alongside email — managers always, HSE for safety
+    // faults. Mirrors the email recipients above.
+    const plantName = populatedFault.plantId?.namePlant ?? '';
+    sendPushToRole('manager', {
+      title: 'Nuova segnalazione',
+      body: `${populatedFault.faultId} — ${plantName}`,
+      url: `/manager/${populatedFault._id}`,
+      tag: `fault-${populatedFault._id}`,
+    }).catch((err) => console.error('[push] new-fault failed', err.message));
+
+    if (typeFault === 'Safety') {
+      sendPushToRole('safety', {
+        title: '[Sicurezza] Nuova segnalazione',
+        body: `${populatedFault.faultId} — ${plantName}`,
+        url: `/safety/${populatedFault._id}`,
+        tag: `fault-${populatedFault._id}`,
+      }).catch((err) => console.error('[push] hse failed', err.message));
+    }
   });
 
   return res.status(201).json(populatedFault);
