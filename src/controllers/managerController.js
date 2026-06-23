@@ -7,6 +7,7 @@ import {
   sendReassignEmail,
 } from '../services/email/index.js';
 import { logFromRequest } from '../services/auditLog.js';
+import { sendPushToUsers } from '../services/push/index.js';
 
 export const addFault = async (req, res) => {
   try {
@@ -113,6 +114,16 @@ export const addFault = async (req, res) => {
       ).catch((err) =>
         console.error('[email] post-assign dispatch failed', err.message),
       );
+
+      sendPushToUsers(
+        (populatedFault.assignedMaintainers ?? []).map((m) => m._id),
+        {
+          title: 'Nuovo intervento assegnato',
+          body: `${populatedFault.faultId} — ${populatedFault.plantId?.namePlant ?? ''}`,
+          url: `/maintenance-worker/${populatedFault._id}`,
+          tag: `fault-${populatedFault._id}`,
+        },
+      ).catch((err) => console.error('[push] assign failed', err.message));
     });
 
     return res.status(200).json(populatedFault);
@@ -229,6 +240,17 @@ export const reassignFault = async (req, res) => {
     })().catch((err) =>
       console.error('[email] post-reassign dispatch failed', err.message),
     );
+
+    // Push only the newly added workers — the removed ones get the
+    // email notice, no point pushing "you were unassigned".
+    if (addedIds.length > 0) {
+      sendPushToUsers(addedIds, {
+        title: 'Nuovo intervento assegnato',
+        body: `${populatedFault.faultId} — ${populatedFault.plantId?.namePlant ?? ''}`,
+        url: `/maintenance-worker/${populatedFault._id}`,
+        tag: `fault-${populatedFault._id}`,
+      }).catch((err) => console.error('[push] reassign failed', err.message));
+    }
   });
 
   return res.status(200).json(populatedFault);
@@ -320,6 +342,15 @@ export const addMaintainers = async (req, res) => {
     );
     sendAssignmentEmail(populatedFault, added).catch((err) =>
       console.error('[email] post-add-maintainers dispatch failed', err.message),
+    );
+
+    sendPushToUsers(addedIds, {
+      title: 'Nuovo intervento assegnato',
+      body: `${populatedFault.faultId} — ${populatedFault.plantId?.namePlant ?? ''}`,
+      url: `/maintenance-worker/${populatedFault._id}`,
+      tag: `fault-${populatedFault._id}`,
+    }).catch((err) =>
+      console.error('[push] add-maintainers failed', err.message),
     );
   });
 
