@@ -20,6 +20,11 @@ export const listAuditLogSchema = {
     targetType: Joi.string().valid(...AUDIT_TARGETS),
     targetId: Joi.string().custom(objectIdValidator),
 
+    // Dashboard section split: access = auth.*, changes = the rest.
+    category: Joi.string().valid('access', 'changes'),
+    // Free-text actor-name search (matched against User.fullName).
+    search: Joi.string().trim().allow('').max(120),
+
     from: Joi.date().iso(),
     to: Joi.date().iso().greater(Joi.ref('from')),
 

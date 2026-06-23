@@ -2,6 +2,7 @@ import createHttpError from 'http-errors';
 import mongoose from 'mongoose';
 
 import { DIRECT_SENDER_ROLES, MESSAGE_TYPE } from '../constants/message.js';
+import { STATUS } from '../constants/status.js';
 import { Message } from '../models/message.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 
@@ -43,7 +44,7 @@ export const createDirectMessage = async (req, res) => {
 
   const recipient = await User.findById(recipientId).lean();
   if (!recipient) throw createHttpError(404, 'Recipient not found');
-  if (recipient.status !== USER_STATUS.ACTIVE) {
+  if (recipient.status !== STATUS.ACTIVE) {
     throw createHttpError(400, 'Recipient is not active');
   }
 
@@ -300,7 +301,7 @@ export const replyToMessage = async (req, res) => {
   if (!recipient) {
     throw createHttpError(404, 'Original author no longer exists');
   }
-  if (recipient.status !== 'active') {
+  if (recipient.status !== STATUS.ACTIVE) {
     throw createHttpError(400, 'Original author is not active');
   }
 

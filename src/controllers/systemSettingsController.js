@@ -6,7 +6,11 @@ import {
   invalidateCache,
   toPublicView,
 } from '../services/systemSettings.js';
-import { ensureTtlIndex as ensureAuditTtlIndex } from '../services/auditLog.js';
+import {
+  ensureTtlIndex as ensureAuditTtlIndex,
+  logFromRequest,
+  redactMeta,
+} from '../services/auditLog.js';
 import { reloadCronJobs } from '../cron/index.js';
 
 export const getPublicSettings = async (req, res) => {
@@ -45,6 +49,14 @@ export const updateSettings = async (req, res) => {
       console.error('[cron] reload after settings update failed', err.message),
     );
   }
+
+  await logFromRequest(req, {
+    action: 'settings.update',
+    targetType: 'SystemSettings',
+    targetId: updated._id,
+    summary: `Settings updated (${Object.keys(req.body ?? {}).join(', ')})`,
+    meta: redactMeta(req.body),
+  });
 
   return res.status(200).json(updated);
 };

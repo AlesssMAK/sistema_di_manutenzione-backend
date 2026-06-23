@@ -1,6 +1,8 @@
 import { Plant } from '../models/plant.js';
 import { STATUS } from '../constants/status.js';
 import createHttpError from 'http-errors';
+import { logFromRequest } from '../services/auditLog.js';
+import { PlantPart } from '../models/part.js';
 
 export const createPlant = async (req, res) => {
   const { namePlant, code, location, description } = req.body;
@@ -30,6 +32,13 @@ export const createPlant = async (req, res) => {
     code,
     location,
     description,
+  });
+
+  await logFromRequest(req, {
+    action: 'plant.create',
+    targetType: 'Plant',
+    targetId: newPlant._id,
+    summary: `Created plant ${newPlant.namePlant} (${newPlant.code})`,
   });
 
   res.status(201).json({
@@ -118,6 +127,14 @@ export const updatePlant = async (req, res) => {
     new: true,
   });
 
+  await logFromRequest(req, {
+    action: 'plant.update',
+    targetType: 'Plant',
+    targetId: updatedPlant._id,
+    summary: `Updated plant ${updatedPlant.namePlant} (${updatedPlant.code})`,
+    meta: { changed: Object.keys(req.body ?? {}) },
+  });
+
   res.status(200).json({
     success: true,
     message: 'Plant updated successfully',
@@ -125,7 +142,7 @@ export const updatePlant = async (req, res) => {
   });
 };
 
-export const deletePlant = async (req, res) => {
+export const deactivatedPlant = async (req, res) => {
   // Soft-delete only. Previously this also ran
   // `PlantPart.deleteMany({ plantId })` — one click on the admin's
   // Elimina button could silently obliterate every historical
@@ -153,9 +170,37 @@ export const deletePlant = async (req, res) => {
   plant.status = STATUS.DEACTIVATED;
   await plant.save();
 
+  await logFromRequest(req, {
+    action: 'plant.delete',
+    targetType: 'Plant',
+    targetId: plant._id,
+    summary: `Deactivated plant ${plant.namePlant} (${plant.code})`,
+  });
+
   res.status(200).json({
     success: true,
     message: 'Plant deactivated successfully',
     data: plant,
+  });
+};
+
+export const deletePlant = async (req, res) => {
+  const { plantId } = req.params;
+
+  const plant = await Plant.findByIdAndDelete(plantId);
+
+  if (!plant) {
+    throw createHttpError(404, 'Plant not found');
+  }
+
+  const { deletedCount } = await PlantPart.deleteMany({ plantId });
+
+  res.status(200).json({
+    success: true,
+    message: 'Plant deleted successfully',
+    data: {
+      plant,
+      deletedPartsCount: deletedCount,
+    },
   });
 };
