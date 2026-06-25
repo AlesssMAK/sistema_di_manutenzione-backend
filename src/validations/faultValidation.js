@@ -66,6 +66,9 @@ export const getAllFaultSchema = {
   [Segments.QUERY]: Joi.object({
     faultId: Joi.string().trim().optional(),
     nameOperator: Joi.string().trim().optional(),
+    // Free-text search: partial, case-insensitive match on faultId
+    // OR nameOperator (controller builds the $or regex).
+    search: Joi.string().trim().optional(),
     createdById: Joi.string().custom(objectIdValidator).optional(),
     plant: Joi.string().trim().optional(),
     partPlant: Joi.string().trim().optional(),

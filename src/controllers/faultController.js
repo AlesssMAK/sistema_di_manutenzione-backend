@@ -139,6 +139,7 @@ export const getAllFault = async (req, res) => {
   const {
     faultId,
     nameOperator,
+    search,
     createdById,
     priority,
     plant,
@@ -164,6 +165,14 @@ export const getAllFault = async (req, res) => {
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
+  // Free-text search box on the manager list — partial match on the
+  // fault code or the operator who reported it.
+  if (search) {
+    query.$or = [
+      { faultId: new RegExp(search, 'i') },
+      { nameOperator: new RegExp(search, 'i') },
+    ];
+  }
   if (createdById) query.userId = createdById;
   if (typeFault) query.typeFault = typeFault;
   if (dataCreated) query.dataCreated = dataCreated;
