@@ -18,7 +18,14 @@ const safeEmit = (target, event, payload) => {
 
 export const emitFaultCreated = (fault) =>
   safeEmit(
-    (io) => io.to(roleRoom('manager')).to(roleRoom('admin')).to(roleRoom('safety')),
+    (io) =>
+      io
+        .to(roleRoom('manager'))
+        .to(roleRoom('admin'))
+        .to(roleRoom('safety'))
+        // Maintainers see incoming faults too so they can pick up pool
+        // work without waiting to be assigned.
+        .to(roleRoom('maintenanceWorker')),
     'fault:created',
     fault,
   );

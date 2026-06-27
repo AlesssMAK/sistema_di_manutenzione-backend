@@ -8,6 +8,7 @@ import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 import { emitFaultCreated } from '../socket/emitters.js';
 import {
   sendNewFaultEmail,
+  sendNewFaultMaintainerEmail,
   sendSicurezzaHseEmail,
 } from '../services/email/index.js';
 import { logFromRequest } from '../services/auditLog.js';
@@ -98,13 +99,15 @@ export const createFault = async (req, res) => {
 
   setImmediate(() => {
     (async () => {
-      const [managers, hseUsers] = await Promise.all([
+      const [managers, hseUsers, maintainers] = await Promise.all([
         User.find({ role: 'manager', status: 'active' }),
         typeFault === 'Safety'
           ? User.find({ role: 'safety', status: 'active' })
           : Promise.resolve([]),
+        User.find({ role: 'maintenanceWorker', status: 'active' }),
       ]);
       await sendNewFaultEmail(populatedFault, managers);
+      await sendNewFaultMaintainerEmail(populatedFault, maintainers);
       if (typeFault === 'Safety') {
         await sendSicurezzaHseEmail(populatedFault, hseUsers);
       }
@@ -121,6 +124,17 @@ export const createFault = async (req, res) => {
       url: `/manager/${populatedFault._id}`,
       tag: `fault-${populatedFault._id}`,
     }).catch((err) => console.error('[push] new-fault failed', err.message));
+
+    // Maintainers get the heads-up too (pool work they can claim) — same
+    // payload, but pointed at their own detail page.
+    sendPushToRole('maintenanceWorker', {
+      title: 'Nuova segnalazione',
+      body: `${populatedFault.faultId} — ${plantName}`,
+      url: `/maintenance-worker/${populatedFault._id}`,
+      tag: `fault-${populatedFault._id}`,
+    }).catch((err) =>
+      console.error('[push] new-fault maintainer failed', err.message),
+    );
 
     if (typeFault === 'Safety') {
       sendPushToRole('safety', {

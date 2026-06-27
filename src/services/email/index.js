@@ -94,6 +94,24 @@ export const sendNewFaultEmail = async (fault, managers) => {
   });
 };
 
+export const sendNewFaultMaintainerEmail = async (fault, maintainers) => {
+  // Same trigger + template as the manager new-fault mail; only the
+  // deep link differs (maintainers land on their own detail page).
+  const gate = await guard('onNewFault');
+  if (!gate.ok) return { skipped: true, reason: gate.reason };
+  if (!maintainers?.length) return { skipped: true, reason: 'no_maintainers' };
+
+  return sendBulk({
+    recipients: maintainers,
+    template: 'newFault',
+    from: gate.settings.email.from,
+    contextFor: () => ({
+      ...baseFaultContext(fault),
+      link: buildLink('maintenance-worker', fault._id),
+    }),
+  });
+};
+
 export const sendSicurezzaHseEmail = async (fault, hseUsers) => {
   const gate = await guard('onSicurezzaHse');
   if (!gate.ok) return { skipped: true, reason: gate.reason };
