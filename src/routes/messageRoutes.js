@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { celebrate } from 'celebrate';
 
 import { authenticate } from '../middleware/authenticate.js';
+import { authorizeRoles } from '../middleware/authorizeRoles.js';
 import { upload } from '../middleware/multer.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 
@@ -19,6 +20,7 @@ import {
   createBroadcast,
   listInbox,
   listAnnouncements,
+  listAllowedSenders,
   getUnreadCount,
   markAsRead,
   replyToMessage,
@@ -59,6 +61,12 @@ router.get(
 );
 
 router.get('/messages/unread-count', ctrlWrapper(getUnreadCount));
+
+router.get(
+  '/messages/allowed-senders',
+  authorizeRoles('admin'),
+  ctrlWrapper(listAllowedSenders),
+);
 
 router.patch(
   '/messages/:id/read',

@@ -26,6 +26,7 @@ export const updateProfile = async (req, res) => {
     'personalCode',
     'avatar',
     'status',
+    'permissions',
   ];
 
   const updates = {};
@@ -40,6 +41,17 @@ export const updateProfile = async (req, res) => {
     } else {
       updates[key] = value;
     }
+  }
+
+  // Merge (not replace) permissions so toggling one grant never wipes
+  // the others — the UI sends only the changed flag.
+  if (updates.permissions && typeof updates.permissions === 'object') {
+    const current = targetUser.permissions ?? {};
+    updates.permissions = {
+      canCreateAnnouncements: current.canCreateAnnouncements ?? false,
+      canSendMessages: current.canSendMessages ?? false,
+      ...updates.permissions,
+    };
   }
 
   const finalRole = updates.role ?? targetUser.role;

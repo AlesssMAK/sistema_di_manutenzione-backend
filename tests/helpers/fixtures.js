@@ -19,6 +19,7 @@ export const createUser = async ({
   email,
   password = DEFAULT_PASSWORD,
   personalCode,
+  permissions,
 } = {}) => {
   if (!role) throw new Error('createUser: role is required');
   // Joi.email() defaults to the IANA TLD list and rejects '.local'
@@ -31,6 +32,7 @@ export const createUser = async ({
     fullName: finalName,
     email: finalEmail,
     isFirstLogin: false,
+    ...(permissions ? { permissions } : {}),
   };
 
   if (role === 'operator') {

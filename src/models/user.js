@@ -53,6 +53,14 @@ const userSchema = new Schema(
       type: Boolean,
       default: true, // Чтобы отследить первый вход и заставить сменить пароль
     },
+    permissions: {
+      // Admin-granted per-user rights, managed from the global settings
+      // tab. canCreateAnnouncements → publish to the public board;
+      // canSendMessages → lets an operator use direct messaging
+      // (other roles can already message).
+      canCreateAnnouncements: { type: Boolean, default: false },
+      canSendMessages: { type: Boolean, default: false },
+    },
   },
   { timestamps: true, versionKey: false },
 );

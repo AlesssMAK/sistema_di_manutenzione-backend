@@ -10,6 +10,10 @@ const VALID = {
   body: 'Sabato impianto fermo.',
 };
 
+// A non-admin user explicitly granted the create permission.
+const flaggedUser = (role = 'maintenanceWorker') =>
+  createUser({ role, permissions: { canCreateAnnouncements: true } });
+
 describe('announcements (public bacheca)', () => {
   let app;
   beforeAll(() => {
@@ -17,9 +21,9 @@ describe('announcements (public bacheca)', () => {
   });
 
   test('GET /public/announcements is public (no auth) and newest-first', async () => {
-    const agent = await loginAs(app, await createUser({ role: 'manager' }));
-    await agent.post('/announcements').send({ title: 'A', body: 'first' });
-    await agent.post('/announcements').send({ title: 'B', body: 'second' });
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    await admin.post('/announcements').send({ title: 'A', body: 'first' });
+    await admin.post('/announcements').send({ title: 'B', body: 'second' });
 
     const res = await request(app).get('/public/announcements');
     expect(res.status).toBe(200);
@@ -34,31 +38,32 @@ describe('announcements (public bacheca)', () => {
     expect(res.status).toBe(401);
   });
 
-  test('manager and admin can create (201); operator cannot (403)', async () => {
-    const manager = await loginAs(app, await createUser({ role: 'manager' }));
+  test('admin and flagged users can create (201); others cannot (403)', async () => {
     const admin = await loginAs(app, await createUser({ role: 'admin' }));
-    const operator = await loginAs(app, await createUser({ role: 'operator' }));
+    const flagged = await loginAs(app, await flaggedUser());
+    const manager = await loginAs(app, await createUser({ role: 'manager' }));
 
-    await manager.post('/announcements').send(VALID).expect(201);
     await admin.post('/announcements').send(VALID).expect(201);
+    await flagged.post('/announcements').send(VALID).expect(201);
 
-    const res = await operator.post('/announcements').send(VALID);
-    expect(res.status).toBe(403);
+    // Manager without the flag is no longer allowed (Phase 2).
+    const denied = await manager.post('/announcements').send(VALID);
+    expect(denied.status).toBe(403);
   });
 
   test('create rejects missing title/body (400)', async () => {
-    const manager = await loginAs(app, await createUser({ role: 'manager' }));
-    const res = await manager.post('/announcements').send({ title: '' });
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    const res = await admin.post('/announcements').send({ title: '' });
     expect(res.status).toBe(400);
   });
 
-  test('author or admin can delete; a non-author manager cannot (403)', async () => {
-    const author = await loginAs(app, await createUser({ role: 'manager' }));
+  test('author or admin can delete; a non-author cannot (403)', async () => {
+    const author = await loginAs(app, await flaggedUser());
     const created = await author.post('/announcements').send(VALID).expect(201);
     const id = created.body._id;
 
-    const otherManager = await loginAs(app, await createUser({ role: 'manager' }));
-    const forbidden = await otherManager.delete(`/announcements/${id}`);
+    const other = await loginAs(app, await createUser({ role: 'manager' }));
+    const forbidden = await other.delete(`/announcements/${id}`);
     expect(forbidden.status).toBe(403);
 
     const ok = await author.delete(`/announcements/${id}`);
@@ -66,5 +71,20 @@ describe('announcements (public bacheca)', () => {
 
     const gone = await Announcement.findById(id);
     expect(gone).toBeNull();
+  });
+
+  test('GET /announcements/authors lists granted users (admin only)', async () => {
+    const granted = await flaggedUser('safety');
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+
+    const res = await admin.get('/announcements/authors');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.users)).toBe(true);
+    const ids = res.body.users.map((u) => String(u._id));
+    expect(ids).toContain(String(granted.user._id));
+
+    const manager = await loginAs(app, await createUser({ role: 'manager' }));
+    const denied = await manager.get('/announcements/authors');
+    expect(denied.status).toBe(403);
   });
 });

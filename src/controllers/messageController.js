@@ -1,7 +1,7 @@
 import createHttpError from 'http-errors';
 import mongoose from 'mongoose';
 
-import { DIRECT_SENDER_ROLES, MESSAGE_TYPE } from '../constants/message.js';
+import { MESSAGE_TYPE } from '../constants/message.js';
 import { STATUS } from '../constants/status.js';
 import { Message } from '../models/message.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
@@ -31,10 +31,26 @@ import { emitMessageNew } from '../socket/emitters.js';
 const populateAuthor = (q) =>
   q.populate({ path: 'authorId', select: 'fullName role avatar' });
 
+// ---------- GET /messages/allowed-senders (admin) ----------
+// Operators explicitly granted direct messaging — drives the settings
+// UI chips. Other roles can always message, so they're not listed.
+export const listAllowedSenders = async (req, res) => {
+  const users = await User.find(
+    { role: 'operator', 'permissions.canSendMessages': true },
+    '_id fullName role',
+  )
+    .sort({ fullName: 1 })
+    .lean();
+  res.status(200).json({ users });
+};
+
 // ---------- POST /messages/direct ----------
 export const createDirectMessage = async (req, res) => {
-  if (!DIRECT_SENDER_ROLES.includes(req.user.role)) {
-    throw createHttpError(403, 'Operators cannot send direct messages');
+  const canSend =
+    req.user.role !== 'operator' ||
+    req.user.permissions?.canSendMessages === true;
+  if (!canSend) {
+    throw createHttpError(403, 'Not allowed to send direct messages');
   }
 
   const { recipientId, subject, body } = req.body;
@@ -132,8 +148,11 @@ export const createBroadcast = async (req, res) => {
 
 // ---------- GET /messages/inbox ----------
 export const listInbox = async (req, res) => {
-  if (!DIRECT_SENDER_ROLES.includes(req.user.role)) {
-    throw createHttpError(403, 'Operators do not have a direct inbox');
+  const canSend =
+    req.user.role !== 'operator' ||
+    req.user.permissions?.canSendMessages === true;
+  if (!canSend) {
+    throw createHttpError(403, 'No direct inbox');
   }
 
   const { box, page, perPage, unreadOnly } = req.query;
