@@ -13,6 +13,7 @@ import {
 
 import {
   listPublicAnnouncements,
+  listAnnouncementAuthors,
   createAnnouncement,
   deleteAnnouncement,
 } from '../controllers/announcementController.js';
@@ -26,12 +27,19 @@ router.get(
   ctrlWrapper(listPublicAnnouncements),
 );
 
-// Phase 1: only admin/manager may publish. Phase 2 will move this to a
-// per-user permission (User.permissions.canCreateAnnouncements).
+// Admin-only — list users granted the create right (for the settings UI).
+router.get(
+  '/announcements/authors',
+  authenticate,
+  authorizeRoles('admin'),
+  ctrlWrapper(listAnnouncementAuthors),
+);
+
+// Admin always; any other role only if granted
+// User.permissions.canCreateAnnouncements (enforced in the controller).
 router.post(
   '/announcements',
   authenticate,
-  authorizeRoles('admin', 'manager'),
   celebrate(createAnnouncementSchema),
   ctrlWrapper(createAnnouncement),
 );

@@ -1,5 +1,18 @@
 import createHttpError from 'http-errors';
 import { Announcement } from '../models/announcement.js';
+import { User } from '../models/user.js';
+
+// Admin-only — users currently granted the create-announcement right,
+// used by the settings UI to render the "authorized authors" chips.
+export const listAnnouncementAuthors = async (req, res) => {
+  const users = await User.find(
+    { 'permissions.canCreateAnnouncements': true },
+    '_id fullName role',
+  )
+    .sort({ fullName: 1 })
+    .lean();
+  res.status(200).json({ users });
+};
 
 // Public read — no auth. Newest first, paginated.
 export const listPublicAnnouncements = async (req, res) => {
@@ -25,6 +38,13 @@ export const listPublicAnnouncements = async (req, res) => {
 };
 
 export const createAnnouncement = async (req, res) => {
+  const canCreate =
+    req.user.role === 'admin' ||
+    req.user.permissions?.canCreateAnnouncements === true;
+  if (!canCreate) {
+    throw createHttpError(403, 'Not allowed to create announcements');
+  }
+
   const { title, body } = req.body;
 
   const announcement = await Announcement.create({

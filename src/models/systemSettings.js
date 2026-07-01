@@ -5,6 +5,19 @@ const HH_MM_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const isValidIanaZone = (tz) => DateTime.local().setZone(tz).isValid;
 
+// Per-day schedule entry. enabled=false → the factory is closed that
+// day; 24h is stored as start='00:00' end='23:59'.
+const dayScheduleSchema = new Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    start: { type: String, match: HH_MM_REGEX, default: '08:00' },
+    end: { type: String, match: HH_MM_REGEX, default: '17:00' },
+  },
+  { _id: false },
+);
+
+const WEEK_DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
 const systemSettingsSchema = new Schema(
   {
     _id: { type: String, default: 'global' },
@@ -39,6 +52,18 @@ const systemSettingsSchema = new Schema(
         message: 'workDays must contain integers 0..6',
       },
       default: [1, 2, 3, 4, 5],
+    },
+
+    // Per-day working hours. Source of truth for scheduling; workDays/
+    // workHours above are kept for backward compatibility.
+    weekSchedule: {
+      mon: dayScheduleSchema,
+      tue: dayScheduleSchema,
+      wed: dayScheduleSchema,
+      thu: dayScheduleSchema,
+      fri: dayScheduleSchema,
+      sat: dayScheduleSchema,
+      sun: dayScheduleSchema,
     },
 
     slotDurationMinutes: {
@@ -89,14 +114,32 @@ const systemSettingsSchema = new Schema(
   { timestamps: true, versionKey: false, _id: false },
 );
 
+const minutes = (hhmm) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+
 systemSettingsSchema.pre('validate', function (next) {
   if (this.workHours?.start && this.workHours?.end) {
-    const [sh, sm] = this.workHours.start.split(':').map(Number);
-    const [eh, em] = this.workHours.end.split(':').map(Number);
-    if (sh * 60 + sm >= eh * 60 + em) {
+    if (minutes(this.workHours.start) >= minutes(this.workHours.end)) {
       return next(new Error('workHours.end must be later than workHours.start'));
     }
   }
+
+  const ws = this.weekSchedule;
+  if (ws) {
+    for (const key of WEEK_DAY_KEYS) {
+      const day = ws[key];
+      if (day?.enabled && day.start && day.end) {
+        if (minutes(day.start) >= minutes(day.end)) {
+          return next(
+            new Error(`weekSchedule.${key}: end must be later than start`),
+          );
+        }
+      }
+    }
+  }
+
   next();
 });
 
