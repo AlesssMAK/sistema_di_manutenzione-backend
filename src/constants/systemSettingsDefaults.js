@@ -7,6 +7,15 @@ export const systemSettingsDefaults = {
     end: '17:00',
   },
   workDays: [1, 2, 3, 4, 5],
+  weekSchedule: {
+    mon: { enabled: true, start: '08:00', end: '17:00' },
+    tue: { enabled: true, start: '08:00', end: '17:00' },
+    wed: { enabled: true, start: '08:00', end: '17:00' },
+    thu: { enabled: true, start: '08:00', end: '17:00' },
+    fri: { enabled: true, start: '08:00', end: '17:00' },
+    sat: { enabled: false, start: '08:00', end: '12:00' },
+    sun: { enabled: false, start: '08:00', end: '17:00' },
+  },
   slotDurationMinutes: 30,
   holidays: [],
 

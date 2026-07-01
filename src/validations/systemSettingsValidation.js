@@ -14,6 +14,37 @@ const workHoursSchema = Joi.object({
   return value;
 });
 
+const dayScheduleSchema = Joi.object({
+  enabled: Joi.boolean().required(),
+  start: hhmm,
+  end: hhmm,
+}).custom((value, helpers) => {
+  if (value.enabled) {
+    if (!value.start || !value.end) {
+      return helpers.message('start and end are required for an enabled day');
+    }
+    const [sh, sm] = value.start.split(':').map(Number);
+    const [eh, em] = value.end.split(':').map(Number);
+    if (sh * 60 + sm >= eh * 60 + em) {
+      return helpers.message('end must be later than start');
+    }
+  }
+  return value;
+});
+
+// All seven days are required together: the settings update does a
+// $set on the whole weekSchedule, so a partial payload would wipe the
+// missing days. The UI always sends the full week.
+const weekScheduleSchema = Joi.object({
+  mon: dayScheduleSchema.required(),
+  tue: dayScheduleSchema.required(),
+  wed: dayScheduleSchema.required(),
+  thu: dayScheduleSchema.required(),
+  fri: dayScheduleSchema.required(),
+  sat: dayScheduleSchema.required(),
+  sun: dayScheduleSchema.required(),
+});
+
 const emailSchema = Joi.object({
   enabled: Joi.boolean(),
   from: Joi.string().trim().email({ tlds: { allow: false } }),
@@ -52,6 +83,7 @@ export const updateSystemSettingsSchema = {
     workDays: Joi.array()
       .items(Joi.number().integer().min(0).max(6))
       .unique(),
+    weekSchedule: weekScheduleSchema,
     slotDurationMinutes: Joi.number().integer().min(5).max(240),
     holidays: Joi.array().items(Joi.date().iso()),
     email: emailSchema,

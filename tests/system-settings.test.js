@@ -85,6 +85,54 @@ describe('system settings', () => {
     expect(res.status).toBe(400);
   });
 
+  const fullWeek = () => ({
+    mon: { enabled: true, start: '00:00', end: '23:59' },
+    tue: { enabled: true, start: '00:00', end: '23:59' },
+    wed: { enabled: true, start: '00:00', end: '23:59' },
+    thu: { enabled: true, start: '00:00', end: '23:59' },
+    fri: { enabled: true, start: '00:00', end: '23:59' },
+    sat: { enabled: true, start: '08:00', end: '12:00' },
+    sun: { enabled: false, start: '08:00', end: '17:00' },
+  });
+
+  test('public view exposes weekSchedule (defaults: Mon–Fri on, weekend off)', async () => {
+    const agent = await loginAs(app, await createUser({ role: 'manager' }));
+    const res = await agent.get('/system-settings');
+    expect(res.status).toBe(200);
+    expect(res.body.weekSchedule?.mon?.enabled).toBe(true);
+    expect(res.body.weekSchedule?.sat?.enabled).toBe(false);
+  });
+
+  test('admin sets a per-day schedule (24/5 + Saturday morning)', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+
+    const patch = await admin
+      .patch('/system-settings')
+      .send({ weekSchedule: fullWeek() });
+    expect(patch.status).toBe(200);
+
+    const full = await admin.get('/system-settings/full');
+    expect(full.body.weekSchedule.sat).toMatchObject({
+      enabled: true,
+      start: '08:00',
+      end: '12:00',
+    });
+    expect(full.body.weekSchedule.mon).toMatchObject({
+      enabled: true,
+      start: '00:00',
+      end: '23:59',
+    });
+    expect(full.body.weekSchedule.sun.enabled).toBe(false);
+  });
+
+  test('rejects a day whose end is not after start (400)', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    const res = await admin.patch('/system-settings').send({
+      weekSchedule: { ...fullWeek(), sat: { enabled: true, start: '12:00', end: '08:00' } },
+    });
+    expect(res.status).toBe(400);
+  });
+
   test('GET /system-settings/full requires admin', async () => {
     const manager = await loginAs(app, await createUser({ role: 'manager' }));
     const managerRes = await manager.get('/system-settings/full');

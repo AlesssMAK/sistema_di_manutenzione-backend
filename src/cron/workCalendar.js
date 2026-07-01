@@ -18,12 +18,36 @@ export const parseDateInZone = (yyyyMmDd, timezone) =>
 export const endOfDayInZone = (yyyyMmDd, timezone) =>
   parseDateInZone(yyyyMmDd, timezone).endOf('day');
 
-export const isWorkingDay = (dateTime, { workDays, holidays }) => {
-  const cronWeekday = luxonWeekdayToCronWeekday(dateTime.weekday);
-  if (!workDays.includes(cronWeekday)) return false;
+const CRON_TO_DAY_KEY = {
+  0: 'sun',
+  1: 'mon',
+  2: 'tue',
+  3: 'wed',
+  4: 'thu',
+  5: 'fri',
+  6: 'sat',
+};
+
+// Resolve the working config for a given day from the per-day
+// weekSchedule, falling back to the legacy workDays/workHours for
+// settings created before weekSchedule existed.
+const dayConfig = (dateTime, settings) => {
+  const cron = luxonWeekdayToCronWeekday(dateTime.weekday);
+  const fromWeek = settings.weekSchedule?.[CRON_TO_DAY_KEY[cron]];
+  if (fromWeek) return fromWeek;
+  return {
+    enabled: (settings.workDays ?? []).includes(cron),
+    start: settings.workHours?.start ?? '08:00',
+    end: settings.workHours?.end ?? '17:00',
+  };
+};
+
+export const isWorkingDay = (dateTime, settings) => {
+  const cfg = dayConfig(dateTime, settings);
+  if (!cfg?.enabled) return false;
 
   const dateStr = dateTime.toFormat(DATE_FORMAT);
-  const isHoliday = holidays.some((h) => {
+  const isHoliday = (settings.holidays ?? []).some((h) => {
     const holidayDt =
       h instanceof Date
         ? DateTime.fromJSDate(h, { zone: dateTime.zoneName })
@@ -42,9 +66,13 @@ export const nextWorkingDay = (fromDate, settings, maxIterations = 60) => {
   return null;
 };
 
-export const generateSlots = (dayDateTime, { workHours, slotDurationMinutes }) => {
-  const [startH, startM] = workHours.start.split(':').map(Number);
-  const [endH, endM] = workHours.end.split(':').map(Number);
+export const generateSlots = (dayDateTime, settings) => {
+  const cfg = dayConfig(dayDateTime, settings);
+  if (!cfg?.enabled) return [];
+
+  const { slotDurationMinutes } = settings;
+  const [startH, startM] = cfg.start.split(':').map(Number);
+  const [endH, endM] = cfg.end.split(':').map(Number);
 
   const dayStart = dayDateTime.set({
     hour: startH,
