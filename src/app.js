@@ -42,7 +42,9 @@ export const buildApp = ({ withAdmin = true, withSwagger = true } = {}) => {
   app.use(helmet());
   app.use(logger);
   app.use(express.json());
-  const corsOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:3000')
+  const corsOrigins = (
+    process.env.FRONTEND_URL ?? 'https://sistema-di-manutenzione.vercel.app/'
+  )
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
