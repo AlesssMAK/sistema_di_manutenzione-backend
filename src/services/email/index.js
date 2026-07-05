@@ -21,6 +21,8 @@ const subjectFor = (template, ctx) => {
       return ctx.subject
         ? `[MMS] ${ctx.subject}`
         : `Nuovo messaggio da ${ctx.authorName ?? 'MMS'}`;
+    case 'passwordReset':
+      return 'Reimposta la tua password';
     default:
       return `MMS: ${ctx.faultId ?? ''}`.trim();
   }
@@ -185,6 +187,25 @@ export const sendReassignEmail = async (fault, removedMaintainers) => {
       managerComment: fault.managerComment ?? '',
       link: buildLink('maintenance-worker', fault._id),
     }),
+  });
+};
+
+// Security email (not a notification): gated only on email being
+// enabled + a configured `from`, never on a per-notification trigger.
+export const sendPasswordResetEmail = async (user, link) => {
+  const settings = await getSettings();
+  if (!settings?.email?.enabled) return { skipped: true, reason: 'email_disabled' };
+  if (!settings?.email?.from) return { skipped: true, reason: 'no_from' };
+  if (!user?.email) return { skipped: true, reason: 'no_recipient_email' };
+
+  return sendOne({
+    to: user.email,
+    template: 'passwordReset',
+    from: settings.email.from,
+    context: {
+      recipientName: user.fullName ?? '',
+      link,
+    },
   });
 };
 

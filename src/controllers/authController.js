@@ -1,9 +1,15 @@
 import createHttpError from 'http-errors';
+import crypto from 'node:crypto';
 import { User } from '../models/user.js';
 import bcrypt from 'bcrypt';
 import { createSession, setSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
 import { logEvent } from '../services/auditLog.js';
+import { sendPasswordResetEmail } from '../services/email/index.js';
+
+const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+const FRONTEND_URL = () => process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export const registerUser = async (req, res) => {
   const { role, fullName, email, password, personalCode } = req.body;
@@ -169,6 +175,84 @@ export const loginUser = async (req, res, next) => {
   }
 
   throw createHttpError(400, 'Invalid login payload');
+};
+
+// Self-service reset — step 1: request a link. Always returns the same
+// generic 200 so the endpoint can't be used to probe which emails exist.
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  const generic = {
+    message:
+      'Se esiste un account con questa email, ti abbiamo inviato un link per reimpostare la password.',
+  };
+
+  // Operators have no password, so they're excluded by role.
+  const user = await User.findOne({
+    email,
+    role: { $ne: 'operator' },
+    status: 'active',
+  });
+
+  if (user) {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = sha256(rawToken);
+    user.resetPasswordExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+    await user.save();
+
+    const link = `${FRONTEND_URL()}/reset-password?token=${rawToken}`;
+    // Fire-and-forget — never surface transport errors to the caller
+    // (that would leak whether the address / SMTP is reachable).
+    sendPasswordResetEmail(user, link).catch((err) =>
+      console.error('[auth] reset email failed', err?.message),
+    );
+
+    logEvent({
+      actorId: user._id,
+      actorRole: user.role,
+      action: 'auth.passwordResetRequested',
+      targetType: 'User',
+      targetId: user._id,
+      summary: `${user.fullName} requested a password reset`,
+      req,
+    });
+  }
+
+  return res.status(200).json(generic);
+};
+
+// Self-service reset — step 2: consume the token, set the new password.
+export const resetPassword = async (req, res) => {
+  const { token, password } = req.body;
+
+  const user = await User.findOne({
+    resetPasswordToken: sha256(token),
+    resetPasswordExpires: { $gt: new Date() },
+  });
+
+  if (!user) {
+    throw createHttpError(400, 'Invalid or expired token');
+  }
+
+  user.password = await bcrypt.hash(password, 10);
+  user.resetPasswordToken = undefined; // single-use
+  user.resetPasswordExpires = undefined;
+  user.isFirstLogin = false;
+  await user.save();
+
+  // A reset invalidates any active session for that user.
+  await Session.deleteMany({ userId: user._id });
+
+  logEvent({
+    actorId: user._id,
+    actorRole: user.role,
+    action: 'auth.passwordReset',
+    targetType: 'User',
+    targetId: user._id,
+    summary: `${user.fullName} (${user.role}) reset their password`,
+    req,
+  });
+
+  return res.status(200).json({ message: 'Password reimpostata con successo' });
 };
 
 // export const registerOperator = async (req, res) => {
