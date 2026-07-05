@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { createTestApp } from './helpers/app.js';
-import { createUser } from './helpers/fixtures.js';
+import { createUser, createPlant } from './helpers/fixtures.js';
 import { loginAs } from './helpers/auth.js';
 import { Announcement } from '../src/models/announcement.js';
 
@@ -71,6 +71,99 @@ describe('announcements (public bacheca)', () => {
 
     const gone = await Announcement.findById(id);
     expect(gone).toBeNull();
+  });
+
+  test('create defaults to category "announcement" when unspecified', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    const res = await admin.post('/announcements').send(VALID).expect(201);
+    expect(res.body.category).toBe('announcement');
+    expect(res.body.plantId).toBeUndefined();
+  });
+
+  test('create "handover" with a machine denormalizes plantName', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    const plant = await createPlant({ namePlant: 'Estrusore 3' });
+
+    const res = await admin
+      .post('/announcements')
+      .send({ ...VALID, category: 'handover', plantId: String(plant._id) })
+      .expect(201);
+
+    expect(res.body.category).toBe('handover');
+    expect(String(res.body.plantId)).toBe(String(plant._id));
+    expect(res.body.plantName).toBe('Estrusore 3');
+  });
+
+  test('create "handover" with a non-existent machine is rejected (400)', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    const res = await admin.post('/announcements').send({
+      ...VALID,
+      category: 'handover',
+      plantId: '5f9f1b9b9b9b9b9b9b9b9b9b',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test('GET /public/announcements?category= filters by category', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    const plant = await createPlant();
+    await admin
+      .post('/announcements')
+      .send({ title: 'Turno', body: 'handover', category: 'handover', plantId: String(plant._id) })
+      .expect(201);
+    await admin
+      .post('/announcements')
+      .send({ title: 'Avviso', body: 'announcement', category: 'announcement' })
+      .expect(201);
+
+    const consegne = await request(app).get('/public/announcements?category=handover');
+    expect(consegne.status).toBe(200);
+    expect(consegne.body.items.length).toBeGreaterThanOrEqual(1);
+    expect(consegne.body.items.every((a) => a.category === 'handover')).toBe(true);
+  });
+
+  test('severity defaults to "normale" and accepts a valid level', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+
+    const def = await admin.post('/announcements').send(VALID).expect(201);
+    expect(def.body.severity).toBe('normal');
+
+    const imp = await admin
+      .post('/announcements')
+      .send({ ...VALID, severity: 'important' })
+      .expect(201);
+    expect(imp.body.severity).toBe('important');
+  });
+
+  test('create rejects an invalid severity (400)', async () => {
+    const admin = await loginAs(app, await createUser({ role: 'admin' }));
+    const res = await admin
+      .post('/announcements')
+      .send({ ...VALID, severity: 'BOGUS' });
+    expect(res.status).toBe(400);
+  });
+
+  test('legacy announcement without category counts as "announcement", never duplicated', async () => {
+    const admin = await createUser({ role: 'admin' });
+    // Raw insert bypasses the mongoose `category` default to simulate a
+    // document created before the field existed.
+    const { insertedId } = await Announcement.collection.insertOne({
+      title: 'Legacy',
+      body: 'no category field',
+      authorId: admin.user._id,
+      authorName: admin.user.fullName ?? 'X',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const annunci = await request(app).get('/public/announcements?category=announcement');
+    const consegne = await request(app).get('/public/announcements?category=handover');
+
+    const inAnnunci = annunci.body.items.some((a) => String(a._id) === String(insertedId));
+    const inConsegne = consegne.body.items.some((a) => String(a._id) === String(insertedId));
+
+    expect(inAnnunci).toBe(true);
+    expect(inConsegne).toBe(false);
   });
 
   test('GET /announcements/authors lists granted users (admin only)', async () => {

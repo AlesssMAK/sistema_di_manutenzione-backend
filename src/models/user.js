@@ -53,6 +53,10 @@ const userSchema = new Schema(
       type: Boolean,
       default: true, // Чтобы отследить первый вход и заставить сменить пароль
     },
+    // Self-service password reset. We store only the SHA-256 hash of the
+    // token; the raw token lives solely in the emailed link.
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
     permissions: {
       // Admin-granted per-user rights, managed from the global settings
       // tab. canCreateAnnouncements → publish to the public board;
@@ -70,6 +74,8 @@ userSchema.methods.toJSON = function () {
 
   delete obj.password;
   delete obj.personalCode;
+  delete obj.resetPasswordToken;
+  delete obj.resetPasswordExpires;
 
   return obj;
 };

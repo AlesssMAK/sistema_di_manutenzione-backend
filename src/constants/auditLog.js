@@ -3,6 +3,8 @@ export const AUDIT_ACTIONS = [
   'auth.logout',
   'auth.refresh',
   'auth.register',
+  'auth.passwordResetRequested',
+  'auth.passwordReset',
 
   'user.create',
   'user.update',

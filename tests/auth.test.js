@@ -1,10 +1,23 @@
 import { describe, test, expect, beforeAll } from 'vitest';
 import request from 'supertest';
+import crypto from 'node:crypto';
+import bcrypt from 'bcrypt';
 import { createTestApp } from './helpers/app.js';
 import { createUser } from './helpers/fixtures.js';
 import { loginAs } from './helpers/auth.js';
 import { User } from '../src/models/user.js';
 import { Session } from '../src/models/session.js';
+
+const sha256 = (v) => crypto.createHash('sha256').update(v).digest('hex');
+
+// Set a reset token on a user directly, as forgot-password would.
+const seedResetToken = async (user, { expiresInMs = 60 * 60 * 1000 } = {}) => {
+  const raw = crypto.randomBytes(32).toString('hex');
+  user.resetPasswordToken = sha256(raw);
+  user.resetPasswordExpires = new Date(Date.now() + expiresInMs);
+  await user.save();
+  return raw;
+};
 
 describe('auth', () => {
   let app;
@@ -107,5 +120,76 @@ describe('auth', () => {
     expect(json.password).toBeUndefined();
     expect(json.personalCode).toBeUndefined();
     expect(json.fullName).toBe(user.fullName);
+  });
+
+  test('forgot-password issues a token and returns a generic 200', async () => {
+    const { user } = await createUser({ role: 'manager' });
+
+    const res = await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: user.email });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBeTruthy();
+
+    const reloaded = await User.findById(user._id);
+    expect(reloaded.resetPasswordToken).toBeTruthy();
+    expect(reloaded.resetPasswordExpires.getTime()).toBeGreaterThan(Date.now());
+
+    // Unknown email → same generic 200 (no enumeration).
+    const unknown = await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: 'nobody-xyz@example.com' });
+    expect(unknown.status).toBe(200);
+  });
+
+  test('reset-password sets the new password, clears the token, invalidates sessions', async () => {
+    const created = await createUser({ role: 'manager' });
+    const { user } = created;
+    await loginAs(app, created); // create an active session
+    const raw = await seedResetToken(user);
+
+    const res = await request(app)
+      .post('/auth/reset-password')
+      .send({ token: raw, password: 'NewPass99!' });
+    expect(res.status).toBe(200);
+
+    const reloaded = await User.findById(user._id);
+    expect(reloaded.resetPasswordToken).toBeFalsy();
+    expect(await bcrypt.compare('NewPass99!', reloaded.password)).toBe(true);
+    expect(await Session.countDocuments({ userId: user._id })).toBe(0);
+
+    const login = await request(app)
+      .post('/auth/login')
+      .send({ email: user.email, password: 'NewPass99!' });
+    expect(login.status).toBe(200);
+  });
+
+  test('reset-password rejects an invalid token (400)', async () => {
+    const res = await request(app)
+      .post('/auth/reset-password')
+      .send({ token: 'not-a-real-token', password: 'NewPass99!' });
+    expect(res.status).toBe(400);
+  });
+
+  test('reset-password rejects a weak password (400)', async () => {
+    const { user } = await createUser({ role: 'manager' });
+    const raw = await seedResetToken(user);
+
+    const res = await request(app)
+      .post('/auth/reset-password')
+      .send({ token: raw, password: 'alllowercase' }); // no upper/special
+    expect(res.status).toBe(400);
+  });
+
+  test('operator email never receives a reset token', async () => {
+    const { user } = await createUser({ role: 'operator' });
+
+    const res = await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: user.email });
+    expect(res.status).toBe(200);
+
+    const reloaded = await User.findById(user._id);
+    expect(reloaded.resetPasswordToken).toBeUndefined();
   });
 });

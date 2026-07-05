@@ -3,12 +3,15 @@ import { celebrate } from 'celebrate';
 import {
   registerUserSchema,
   loginUserSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from '../validations/authValidation.js';
 import {
   registerUser,
   refreshUserSession,
   loginUser,
-  // registerOperator,
+  forgotPassword,
+  resetPassword,
   logoutUser,
 } from '../controllers/authController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
@@ -29,11 +32,20 @@ router.post(
 
 router.post('/auth/refresh', refreshUserSession);
 router.post('/auth/login', celebrate(loginUserSchema), loginUser);
-// router.patch(
-//   '/auth/change-password',
-//   celebrate(loginUserSchema),
-//   registerOperator,
-// );
+
+// Public self-service password reset (email + password roles only).
+router.post(
+  '/auth/forgot-password',
+  authLimiter,
+  celebrate(forgotPasswordSchema),
+  ctrlWrapper(forgotPassword),
+);
+router.post(
+  '/auth/reset-password',
+  authLimiter,
+  celebrate(resetPasswordSchema),
+  ctrlWrapper(resetPassword),
+);
 
 router.post('/auth/logout', logoutUser);
 

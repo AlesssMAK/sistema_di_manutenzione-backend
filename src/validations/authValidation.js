@@ -1,6 +1,17 @@
 import { Joi, Segments } from 'celebrate';
 import { STATUS } from '../constants/status.js';
 
+// Single source of truth for the password policy: min 8 chars AND at
+// least one lowercase, one uppercase and one special character. Reused
+// by registration and password reset.
+const strongPassword = Joi.string()
+  .min(8)
+  .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).+$/)
+  .messages({
+    'string.pattern.base':
+      'La password deve contenere almeno una minuscola, una maiuscola e un carattere speciale',
+  });
+
 export const registerUserSchema = {
   [Segments.BODY]: Joi.object({
     role: Joi.string()
@@ -24,7 +35,7 @@ export const registerUserSchema = {
     password: Joi.when('role', {
       is: 'operator',
       then: Joi.forbidden(),
-      otherwise: Joi.string().min(8).required(),
+      otherwise: strongPassword.required(),
     }),
 
     avatar: Joi.string().allow('').default(''),
@@ -72,4 +83,17 @@ export const loginUserSchema = {
       password: Joi.string().required(),
     }),
   ),
+};
+
+export const forgotPasswordSchema = {
+  [Segments.BODY]: Joi.object({
+    email: Joi.string().email().required(),
+  }),
+};
+
+export const resetPasswordSchema = {
+  [Segments.BODY]: Joi.object({
+    token: Joi.string().required(),
+    password: strongPassword.required(),
+  }),
 };

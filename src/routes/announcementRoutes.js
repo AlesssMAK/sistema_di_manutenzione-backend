@@ -3,6 +3,7 @@ import { celebrate } from 'celebrate';
 
 import { authenticate } from '../middleware/authenticate.js';
 import { authorizeRoles } from '../middleware/authorizeRoles.js';
+import { upload } from '../middleware/multer.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 
 import {
@@ -37,9 +38,12 @@ router.get(
 
 // Admin always; any other role only if granted
 // User.permissions.canCreateAnnouncements (enforced in the controller).
+// multer runs BEFORE celebrate so multipart text fields land in
+// req.body for the Joi validators; photo files go to req.files.
 router.post(
   '/announcements',
   authenticate,
+  upload.array('img', 5),
   celebrate(createAnnouncementSchema),
   ctrlWrapper(createAnnouncement),
 );
