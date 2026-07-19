@@ -16,7 +16,11 @@ export const runOverdueScan = async () => {
   const today = todayInZone(settings.timezone);
 
   const candidates = await Fault.find({
-    deadline: { $exists: true, $ne: null, $ne: '', $lt: today },
+    // $nin rather than two $ne keys, whose duplicate key silently collapsed
+    // into the last one. Behaviour is unchanged either way: $lt type-brackets
+    // to strings, so a null deadline never matched to begin with. This just
+    // states the intended guard once instead of twice-but-really-once.
+    deadline: { $exists: true, $nin: [null, ''], $lt: today },
     statusFault: { $in: ACTIVE_STATUSES },
   });
 

@@ -103,6 +103,10 @@ export const getAllFaultSchema = {
     // perPage temporarily up to 200 to support deadline-highlight workaround
     // on the maintenance-worker page; drop back to 50 once GET /faults/deadlines lands
     perPage: Joi.number().integer().min(1).max(200).default(2),
+    // Direction of the primary `createdAt` sort (the controller reads
+    // `sort`; without this the strict schema rejected it). asc = oldest
+    // first — used by the maintenance-worker combined queue.
+    sort: Joi.string().valid('asc', 'desc').optional(),
     sortBy: Joi.string().valid(
       'faultId',
       'nameOperator',

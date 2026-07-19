@@ -1,5 +1,4 @@
 import { describe, test, expect, beforeAll } from 'vitest';
-import request from 'supertest';
 import { createTestApp } from './helpers/app.js';
 import { createPlant, createPlantPart, createUser } from './helpers/fixtures.js';
 import { loginAs } from './helpers/auth.js';

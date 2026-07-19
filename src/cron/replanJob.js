@@ -57,7 +57,8 @@ export const runReplanScan = async () => {
   const today = todayInZone(settings.timezone);
 
   const candidates = await Fault.find({
-    plannedDate: { $exists: true, $ne: null, $ne: '', $lt: today },
+    // See overdueJob: two $ne keys collapsed into one. Same result, stated once.
+    plannedDate: { $exists: true, $nin: [null, ''], $lt: today },
     statusFault: { $nin: [STATUS_FAULT.COMPLETED] },
   });
 
