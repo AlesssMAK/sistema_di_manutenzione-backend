@@ -18,8 +18,12 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: 'https://sistema-di-manutenzione-backend.onrender.com//',
-      description: 'Development server',
+      url: 'https://sistema-di-manutenzione-backend.onrender.com',
+      description: 'Production server',
+    },
+    {
+      url: 'http://localhost:3030',
+      description: 'Local development server',
     },
   ],
   components: {
@@ -27,21 +31,14 @@ const swaggerDefinition = {
       cookieAuth: {
         type: 'apiKey',
         in: 'cookie',
-        name: 'sessionId',
-        description: 'Session ID cookie for authentication',
-      },
-      bearerAuth: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
+        name: 'accessToken',
+        description:
+          'Opaque session token set as an httpOnly cookie by POST /auth/login. ' +
+          'Valid for 15 minutes; POST /auth/refresh rotates it using the ' +
+          'refreshToken and sessionId cookies.',
       },
     },
   },
-  // security: [
-  //   {
-  //     cookieAuth: [],
-  //   },
-  // ],
 };
 
 const options = {

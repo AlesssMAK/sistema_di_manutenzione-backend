@@ -1,8 +1,126 @@
 /**
  * @swagger
- * /api/users/{userId}:
+ * tags:
+ *   - name: Users
+ *     description: User directory and profile administration
+ *
+ * /users:
+ *   get:
+ *     summary: List users
+ *     description: Any authenticated role may read the directory.
+ *     tags:
+ *       - Users
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - in: query
+ *         name: perPage
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         description: Case-insensitive match on fullName
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum:
+ *             - operator
+ *             - admin
+ *             - manager
+ *             - maintenanceWorker
+ *             - safety
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum:
+ *             - active
+ *             - deactivated
+ *     responses:
+ *       200:
+ *         description: Paginated user list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 users:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     perPage:
+ *                       type: integer
+ *                       example: 10
+ *                     totalUsers:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     users:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *
+ * /users/me:
+ *   get:
+ *     summary: Get the currently authenticated user
+ *     tags:
+ *       - Users
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: The current user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *
+ * /users/{userId}:
  *   patch:
- *     summary: Частичное обновление профиля пользователя (Admin only)
+ *     summary: Update a user (Admin only)
+ *     description: >
+ *       Send only the fields to change; empty, null and undefined values are
+ *       skipped. `permissions` is merged, not replaced, so toggling one grant
+ *       never clears the other. Passwords are hashed before storage.
+ *
+ *
+ *       Role changes are guarded: switching a user *to* operator requires
+ *       `personalCode`, and switching *away* from operator requires
+ *       `password`. An admin cannot strip their own admin role.
  *     tags:
  *       - Users
  *     security:
@@ -13,50 +131,15 @@
  *         required: true
  *         schema:
  *           type: string
- *         description: ID пользователя, которого нужно обновить
  *     requestBody:
- *       description: Объект с полями для обновления. Можно отправить только те поля, которые нужно изменить.
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: John
- *               lastname:
- *                 type: string
- *                 example: Doe
- *               email:
- *                 type: string
- *                 format: email
- *                 example: new-email@example.it
- *               phone:
- *                 type: string
- *                 example: "+391234567890"
- *               password:
- *                 type: string
- *                 format: password
- *                 example: newSecurePassword123
- *               city:
- *                 type: string
- *                 example: Milan
- *               avatar:
- *                 type: string
- *                 example: https://example.com/new-avatar.jpg
- *               role:
- *                 type: string
- *                 enum:
- *                   - operator
- *                   - admin
- *                   - manager
- *                   - maintenanceWorker
- *                   - safety
- *                 example: manager
+ *             $ref: '#/components/schemas/UserUpdate'
  *     responses:
  *       200:
- *         description: Пользователь успешно обновлен
+ *         description: User updated
  *         content:
  *           application/json:
  *             schema:
@@ -71,25 +154,29 @@
  *                 data:
  *                   $ref: '#/components/schemas/User'
  *       400:
- *         description: Тело запроса пустое или данные невалидны
+ *         description: Empty body, invalid data, or a missing role-change requirement
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *       401:
- *         description: Не авторизован
+ *         description: Not authenticated
  *       403:
- *         description: Доступ запрещен
+ *         description: Not an admin, or an admin removing their own admin role
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       404:
- *         description: Пользователь с таким ID не найден
+ *         description: User not found
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *
  *   put:
- *     summary: Полное обновление профиля пользователя (Admin only)
- *     description: В данной реализации работает идентично PATCH
+ *     summary: Update a user (Admin only)
+ *     description: Routed to the same handler as PATCH — the semantics are identical.
  *     tags:
  *       - Users
  *     security:
@@ -105,8 +192,58 @@
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/requestBodies/UserUpdate'
+ *             $ref: '#/components/schemas/UserUpdate'
  *     responses:
  *       200:
- *         description: Пользователь успешно обновлен
+ *         description: User updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *
+ * /operators:
+ *   get:
+ *     summary: List operators
+ *     description: Convenience endpoint returning every user whose role is `operator`.
+ *     tags:
+ *       - Users
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: All operators
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
