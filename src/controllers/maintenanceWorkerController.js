@@ -192,9 +192,12 @@ export const addFaultByMaintenanceWorker = async (req, res) => {
   }
   if (statusFault === 'Suspended') {
     updateData.suspensionReason = suspensionReason;
-    if (materialRequest !== undefined) {
-      updateData.materialRequest = materialRequest;
-    }
+  }
+  // Material used/needed is captured on both completion and suspension,
+  // so persist it whenever the client sends it rather than gating it on
+  // the Suspended branch.
+  if (materialRequest !== undefined) {
+    updateData.materialRequest = materialRequest;
   }
 
   fault.history.push({
