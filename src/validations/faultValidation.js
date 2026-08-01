@@ -74,6 +74,14 @@ export const getAllFaultSchema = {
     partPlant: Joi.string().trim().optional(),
     typeFault: Joi.string().trim().optional(),
     dataCreated: Joi.string().trim().optional(),
+    // Lower bound for a "created since" window (YYYY-MM-DD). Used by the
+    // public board's Segnalazioni tab to show a rolling recent window.
+    dataCreatedFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .messages({
+        'string.pattern.base': 'dataCreatedFrom must be in format YYYY-MM-DD',
+      }),
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
     plannedDate: Joi.string().trim().optional(),

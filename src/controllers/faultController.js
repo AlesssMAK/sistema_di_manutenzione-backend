@@ -160,6 +160,7 @@ export const getAllFault = async (req, res) => {
     plantPart,
     typeFault,
     dataCreated,
+    dataCreatedFrom,
     timeCreated,
     deadline,
     plannedDate,
@@ -189,7 +190,14 @@ export const getAllFault = async (req, res) => {
   }
   if (createdById) query.userId = createdById;
   if (typeFault) query.typeFault = typeFault;
-  if (dataCreated) query.dataCreated = dataCreated;
+  // Exact day wins over the range; otherwise apply the "created since"
+  // lower bound. dataCreated is a Date path, so Mongoose casts the
+  // YYYY-MM-DD string to a Date for the $gte comparison.
+  if (dataCreated) {
+    query.dataCreated = dataCreated;
+  } else if (dataCreatedFrom) {
+    query.dataCreated = { $gte: dataCreatedFrom };
+  }
   if (timeCreated) query.timeCreated = timeCreated;
   if (plannedDate) query.plannedDate = plannedDate;
   // assignedToEmpty takes precedence — pool fault filter
