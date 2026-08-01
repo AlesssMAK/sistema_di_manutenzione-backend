@@ -14,6 +14,7 @@ const PUBLIC_FIELDS = [
   'weekSchedule',
   'slotDurationMinutes',
   'holidays',
+  'bacheca',
   'updatedAt',
 ];
 

@@ -105,6 +105,14 @@ const systemSettingsSchema = new Schema(
       completedFaultsArchiveMonths: { type: Number, min: 1, max: 120, default: null },
     },
 
+    // Public board — "Segnalazioni" tab. By default it shows a rolling
+    // window of the most recent faults; showAllFaults lifts the window so
+    // the whole history is browsable (paginated).
+    bacheca: {
+      showAllFaults: { type: Boolean, default: false },
+      recentFaultsDays: { type: Number, min: 1, max: 3650, default: 30 },
+    },
+
     updatedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
