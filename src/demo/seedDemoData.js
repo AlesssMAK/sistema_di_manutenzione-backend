@@ -7,6 +7,7 @@
 //
 // Assumes an active mongoose connection (the caller connects/disconnects).
 
+import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import { User } from '../models/user.js';
 import { Plant } from '../models/plant.js';
@@ -27,7 +28,22 @@ const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = n => new Date(Date.now() - n * DAY);
 const ymd = date => date.toISOString().slice(0, 10);
 
+// Safety net against a misconfigured MONGO_URL: refuse to wipe unless
+// the connected database name clearly belongs to a demo (contains
+// "demo"). Without this, a wrong MONGO_URL pointing at real data would
+// let the reset cron or seed destroy production.
+const assertDemoDatabase = () => {
+  const dbName = mongoose.connection?.name || '';
+  if (!/demo/i.test(dbName)) {
+    throw new Error(
+      `[demo] refusing to wipe database "${dbName}" — resetAndSeedDemo only runs on a demo database (name must contain "demo"). Check MONGO_URL.`,
+    );
+  }
+};
+
 export const resetAndSeedDemo = async () => {
+  assertDemoDatabase();
+
   await Promise.all([
     User.deleteMany({}),
     Plant.deleteMany({}),
