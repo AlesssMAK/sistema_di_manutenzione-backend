@@ -31,6 +31,7 @@ import cronRoutes from './routes/cronRoutes.js';
 import safetyRoutes from './routes/safetyRoutes.js';
 import pushRoutes from './routes/pushRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
+import demoRoutes from './routes/demoRoutes.js';
 
 export const buildApp = ({ withAdmin = true, withSwagger = true } = {}) => {
   const app = express();
@@ -59,6 +60,11 @@ export const buildApp = ({ withAdmin = true, withSwagger = true } = {}) => {
   }
 
   app.use(authRoutes);
+  // Demo-only password-less login. Additive: mounted solely when
+  // DEMO_MODE=true, so production never exposes it.
+  if (process.env.DEMO_MODE === 'true') {
+    app.use(demoRoutes);
+  }
   app.use(userRoutes);
   app.use(plantsRoutes);
   app.use(plantPartRoutes);
