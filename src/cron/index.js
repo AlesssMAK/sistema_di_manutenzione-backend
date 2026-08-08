@@ -2,12 +2,17 @@ import cron from 'node-cron';
 import { getSettings } from '../services/systemSettings.js';
 import { runOverdueScan } from './overdueJob.js';
 import { runReplanScan } from './replanJob.js';
+import { runDemoReset } from './demoResetJob.js';
+import { isDemoMode } from '../constants/demo.js';
 
 const OVERDUE_SCHEDULE = '*/5 * * * *';
 const REPLAN_SCHEDULE = '30 0 * * *';
+// Public-demo housekeeping: wipe + reseed every 3 hours.
+const DEMO_RESET_SCHEDULE = '0 */3 * * *';
 
 let overdueTask = null;
 let replanTask = null;
+let demoResetTask = null;
 let activeTimezone = null;
 
 const isEnabled = () => {
@@ -56,13 +61,26 @@ export const startCronJobs = async () => {
   console.log(
     `🕒 Cron jobs started (tz=${activeTimezone}): overdue '${OVERDUE_SCHEDULE}', replan '${REPLAN_SCHEDULE}'`,
   );
+
+  // Demo-only: periodic reset of the public demo world. Additive and
+  // guarded — never scheduled in production.
+  if (isDemoMode()) {
+    demoResetTask = cron.schedule(
+      DEMO_RESET_SCHEDULE,
+      wrap('demo-reset', runDemoReset),
+      { timezone: activeTimezone },
+    );
+    console.log(`🧹 Demo reset cron started: '${DEMO_RESET_SCHEDULE}'`);
+  }
 };
 
 export const stopCronJobs = () => {
   stopTask(overdueTask);
   stopTask(replanTask);
+  stopTask(demoResetTask);
   overdueTask = null;
   replanTask = null;
+  demoResetTask = null;
   activeTimezone = null;
 };
 

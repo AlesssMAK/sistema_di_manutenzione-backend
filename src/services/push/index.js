@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import { PushSubscription } from '../../models/pushSubscription.js';
 import { User } from '../../models/user.js';
+import { isDemoMode } from '../../constants/demo.js';
 
 let configured = false;
 
@@ -8,6 +9,8 @@ let configured = false;
 // service no-ops (subscribe endpoints still work, just nothing is
 // delivered) so the app runs fine in dev without push configured.
 const ensureConfigured = () => {
+  // Guard rail: never deliver push from the public demo.
+  if (isDemoMode()) return false;
   if (configured) return true;
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
