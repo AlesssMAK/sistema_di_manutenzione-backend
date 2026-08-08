@@ -248,3 +248,17 @@ export const resetAndSeedDemo = async () => {
     safetyUser: safety.email,
   };
 };
+
+// Startup helper: seed the demo world only when the database is empty,
+// so a fresh deploy has content immediately (before the first reset
+// cron fires) without wiping data on every restart. The periodic
+// resetAndSeedDemo cron handles ongoing cleanup.
+export const seedDemoIfEmpty = async () => {
+  const count = await User.countDocuments();
+  if (count > 0) {
+    console.log('[demo] existing data found — skipping initial seed');
+    return null;
+  }
+  console.log('[demo] empty database — seeding initial demo world');
+  return resetAndSeedDemo();
+};
