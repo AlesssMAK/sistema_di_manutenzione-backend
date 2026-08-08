@@ -40,38 +40,40 @@ export const resetAndSeedDemo = async () => {
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
+  // Deliberately fictional placeholder names (Rossi/Bianchi/Verdi are
+  // Italy's "John Doe") — the public demo must never show real people.
   const [operator, manager, maintainer, safety, admin] = await User.create([
     {
       role: 'operator',
-      fullName: 'Operatore Demo',
+      fullName: 'Mario Rossi',
       email: 'operator@demo.local',
       personalCode: 'OP00001',
       isFirstLogin: false,
     },
     {
       role: 'manager',
-      fullName: 'Manager Demo',
+      fullName: 'Giulia Bianchi',
       email: 'manager@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
     {
       role: 'maintenanceWorker',
-      fullName: 'Manutentore Demo',
+      fullName: 'Luca Verdi',
       email: 'maintainer@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
     {
       role: 'safety',
-      fullName: 'Responsabile Sicurezza',
+      fullName: 'Anna Esposito',
       email: 'safety@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
     {
       role: 'admin',
-      fullName: 'Admin Demo',
+      fullName: 'Paolo Colombo',
       email: 'admin@demo.local',
       password: passwordHash,
       isFirstLogin: false,
