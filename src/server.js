@@ -8,6 +8,8 @@ import { ensureTtlIndex as ensureAuditTtlIndex } from './services/auditLog.js';
 import { ensureMessageTtlIndex } from './services/message.js';
 import { initSocket } from './socket/index.js';
 import { startCronJobs, stopCronJobs } from './cron/index.js';
+import { isDemoMode } from './constants/demo.js';
+import { seedDemoIfEmpty } from './demo/seedDemoData.js';
 
 const PORT = process.env.PORT || 3040;
 
@@ -15,6 +17,9 @@ await connectMongoDB();
 await ensureSystemSettings();
 await ensureAuditTtlIndex();
 await ensureMessageTtlIndex();
+if (isDemoMode()) {
+  await seedDemoIfEmpty();
+}
 await startCronJobs();
 
 const app = buildApp();
