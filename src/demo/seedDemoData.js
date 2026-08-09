@@ -58,7 +58,8 @@ export const resetAndSeedDemo = async () => {
 
   // Deliberately fictional placeholder names (Rossi/Bianchi/Verdi are
   // Italy's "John Doe") — the public demo must never show real people.
-  const [operator, manager, maintainer, safety, admin] = await User.create([
+  const [operator, manager, maintainer, safety, admin, maintainer2, maintainer3] =
+    await User.create([
     {
       role: 'operator',
       fullName: 'Mario Rossi',
@@ -91,6 +92,20 @@ export const resetAndSeedDemo = async () => {
       role: 'admin',
       fullName: 'Paolo Colombo',
       email: 'admin@demo.local',
+      password: passwordHash,
+      isFirstLogin: false,
+    },
+    {
+      role: 'maintenanceWorker',
+      fullName: 'Sofia Marino',
+      email: 'maintainer2@demo.local',
+      password: passwordHash,
+      isFirstLogin: false,
+    },
+    {
+      role: 'maintenanceWorker',
+      fullName: 'Davide Greco',
+      email: 'maintainer3@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
@@ -166,7 +181,7 @@ export const resetAndSeedDemo = async () => {
       priority: TYPE_PRIORITY.LOW,
       comment: 'Sostituzione della cinghia del motore etichettatrice.',
       managerId: manager._id,
-      assignedMaintainers: [maintainer._id],
+      assignedMaintainers: [maintainer2._id],
       commentMaintenanceWorker: 'Cinghia sostituita e linea testata con esito positivo.',
       actualDuration: 45,
       completedAt: daysAgo(4),
@@ -184,7 +199,7 @@ export const resetAndSeedDemo = async () => {
       priority: TYPE_PRIORITY.HIGH,
       comment: 'Protezione del nastro trasportatore danneggiata.',
       managerId: manager._id,
-      assignedMaintainers: [maintainer._id],
+      assignedMaintainers: [maintainer3._id],
       suspensionReason: 'In attesa del pezzo di ricambio dal fornitore.',
     },
     {
@@ -257,7 +272,7 @@ export const resetAndSeedDemo = async () => {
   ]);
 
   return {
-    users: 5,
+    users: 7,
     plants: 2,
     parts: parts1.length + parts2.length,
     faults: 5,

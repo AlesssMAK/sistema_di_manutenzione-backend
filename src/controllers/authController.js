@@ -6,6 +6,7 @@ import { createSession, setSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
 import { logEvent } from '../services/auditLog.js';
 import { sendPasswordResetEmail } from '../services/email/index.js';
+import { isDemoMode } from '../constants/demo.js';
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const FRONTEND_URL = () => process.env.FRONTEND_URL ?? 'http://localhost:3000';
@@ -13,6 +14,16 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export const registerUser = async (req, res) => {
   const { role, fullName, email, password, personalCode } = req.body;
+
+  // Demo: don't actually create users (keeps the shared demo clean), but
+  // return a realistic success so the UX flow works. Nothing is saved.
+  if (isDemoMode()) {
+    return res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: { _id: 'demo', role, fullName, email, personalCode },
+    });
+  }
 
   const existingUser = await User.findOne({
     $or: [{ email }, { personalCode: personalCode || null }],
