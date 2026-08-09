@@ -18,7 +18,11 @@ await ensureSystemSettings();
 await ensureAuditTtlIndex();
 await ensureMessageTtlIndex();
 if (isDemoMode()) {
-  await seedDemoIfEmpty();
+  try {
+    await seedDemoIfEmpty();
+  } catch (err) {
+    console.error('[demo] initial seed failed:', err.message);
+  }
 }
 await startCronJobs();
 

@@ -7,6 +7,7 @@
 //
 // Assumes an active mongoose connection (the caller connects/disconnects).
 
+import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import { User } from '../models/user.js';
 import { Plant } from '../models/plant.js';
@@ -27,7 +28,22 @@ const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = n => new Date(Date.now() - n * DAY);
 const ymd = date => date.toISOString().slice(0, 10);
 
+// Safety net against a misconfigured MONGO_URL: refuse to wipe unless
+// the connected database name clearly belongs to a demo (contains
+// "demo"). Without this, a wrong MONGO_URL pointing at real data would
+// let the reset cron or seed destroy production.
+const assertDemoDatabase = () => {
+  const dbName = mongoose.connection?.name || '';
+  if (!/demo/i.test(dbName)) {
+    throw new Error(
+      `[demo] refusing to wipe database "${dbName}" — resetAndSeedDemo only runs on a demo database (name must contain "demo"). Check MONGO_URL.`,
+    );
+  }
+};
+
 export const resetAndSeedDemo = async () => {
+  assertDemoDatabase();
+
   await Promise.all([
     User.deleteMany({}),
     Plant.deleteMany({}),
@@ -40,39 +56,56 @@ export const resetAndSeedDemo = async () => {
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
-  const [operator, manager, maintainer, safety, admin] = await User.create([
+  // Deliberately fictional placeholder names (Rossi/Bianchi/Verdi are
+  // Italy's "John Doe") — the public demo must never show real people.
+  const [operator, manager, maintainer, safety, admin, maintainer2, maintainer3] =
+    await User.create([
     {
       role: 'operator',
-      fullName: 'Operatore Demo',
+      fullName: 'Mario Rossi',
       email: 'operator@demo.local',
       personalCode: 'OP00001',
       isFirstLogin: false,
     },
     {
       role: 'manager',
-      fullName: 'Manager Demo',
+      fullName: 'Giulia Bianchi',
       email: 'manager@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
     {
       role: 'maintenanceWorker',
-      fullName: 'Manutentore Demo',
+      fullName: 'Luca Verdi',
       email: 'maintainer@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
     {
       role: 'safety',
-      fullName: 'Responsabile Sicurezza',
+      fullName: 'Anna Esposito',
       email: 'safety@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
     {
       role: 'admin',
-      fullName: 'Admin Demo',
+      fullName: 'Paolo Colombo',
       email: 'admin@demo.local',
+      password: passwordHash,
+      isFirstLogin: false,
+    },
+    {
+      role: 'maintenanceWorker',
+      fullName: 'Sofia Marino',
+      email: 'maintainer2@demo.local',
+      password: passwordHash,
+      isFirstLogin: false,
+    },
+    {
+      role: 'maintenanceWorker',
+      fullName: 'Davide Greco',
+      email: 'maintainer3@demo.local',
       password: passwordHash,
       isFirstLogin: false,
     },
@@ -148,7 +181,7 @@ export const resetAndSeedDemo = async () => {
       priority: TYPE_PRIORITY.LOW,
       comment: 'Sostituzione della cinghia del motore etichettatrice.',
       managerId: manager._id,
-      assignedMaintainers: [maintainer._id],
+      assignedMaintainers: [maintainer2._id],
       commentMaintenanceWorker: 'Cinghia sostituita e linea testata con esito positivo.',
       actualDuration: 45,
       completedAt: daysAgo(4),
@@ -166,7 +199,7 @@ export const resetAndSeedDemo = async () => {
       priority: TYPE_PRIORITY.HIGH,
       comment: 'Protezione del nastro trasportatore danneggiata.',
       managerId: manager._id,
-      assignedMaintainers: [maintainer._id],
+      assignedMaintainers: [maintainer3._id],
       suspensionReason: 'In attesa del pezzo di ricambio dal fornitore.',
     },
     {
@@ -239,7 +272,7 @@ export const resetAndSeedDemo = async () => {
   ]);
 
   return {
-    users: 5,
+    users: 7,
     plants: 2,
     parts: parts1.length + parts2.length,
     faults: 5,

@@ -3,10 +3,20 @@ import createHttpError from 'http-errors';
 import { Plant } from '../models/plant.js';
 import { STATUS } from '../constants/status.js';
 import { logFromRequest } from '../services/auditLog.js';
+import { isDemoMode } from '../constants/demo.js';
 
 export const createPlantParts = async (req, res, next) => {
   try {
     const { plantId, parts } = req.body;
+
+    // Demo: don't persist new machine parts; return a realistic success.
+    if (isDemoMode()) {
+      return res.status(201).json({
+        success: true,
+        message: 'Plant parts created successfully',
+        data: [],
+      });
+    }
 
     if (!Array.isArray(parts) || parts.length === 0) {
       throw createHttpError(400, 'Parts array is required');
