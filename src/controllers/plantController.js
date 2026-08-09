@@ -4,6 +4,7 @@ import createHttpError from 'http-errors';
 import { logFromRequest } from '../services/auditLog.js';
 import { PlantPart } from '../models/part.js';
 import { isDemoMode } from '../constants/demo.js';
+import mongoose from 'mongoose';
 
 export const createPlant = async (req, res) => {
   const { namePlant, code, location, description } = req.body;
@@ -11,10 +12,19 @@ export const createPlant = async (req, res) => {
   // Demo: don't persist new machines; return a realistic success so the
   // create flow works without polluting the shared demo database.
   if (isDemoMode()) {
+    // A valid ObjectId is required: the machine form chains this into
+    // createPlantParts({ plantId: plant._id }), whose route validation
+    // rejects a non-ObjectId (that caused the demo "Validation failed").
     return res.status(201).json({
       success: true,
       message: 'Plant created successfully',
-      data: { _id: 'demo', namePlant, code, location, description },
+      data: {
+        _id: new mongoose.Types.ObjectId().toString(),
+        namePlant,
+        code,
+        location,
+        description,
+      },
     });
   }
 
