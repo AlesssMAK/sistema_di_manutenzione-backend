@@ -43,4 +43,8 @@ export const systemSettingsDefaults = {
     auditLogDays: 90,
     completedFaultsArchiveMonths: null,
   },
+
+  maintenance: {
+    overtimeAlertHours: 2,
+  },
 };

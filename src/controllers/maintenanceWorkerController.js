@@ -67,6 +67,10 @@ export const claimFault = async (req, res) => {
     statusFault: 'In progress',
     claimedBy: userId,
     claimedAt: new Date(),
+    // Start the work-time clock; no prior span yet.
+    workStartedAt: new Date(),
+    workedMs: 0,
+    overtimeNotifiedAt: null,
   };
   if (!original.plannedDate) {
     claimSet.plannedDate = today;
@@ -136,6 +140,58 @@ export const claimFault = async (req, res) => {
   return res.status(200).json(populated);
 };
 
+// ---------- GET /maintenance-worker/tab-counts ----------
+// Unseen-count badges for the worker board. "New" = the fault's relevant
+// timestamp is later than the tab's lastSeen (persisted per user).
+const SEEN_TABS = ['active', 'overdue', 'completed', 'pool'];
+
+export const getMaintenanceTabCounts = async (req, res) => {
+  const userId = req.user._id;
+  const user = await User.findById(userId).select('maintenanceSeen').lean();
+  const seen = user?.maintenanceSeen ?? {};
+  const since = (d) => (d ? new Date(d) : new Date(0));
+
+  const [active, overdue, completed, pool] = await Promise.all([
+    Fault.countDocuments({
+      assignedMaintainers: userId,
+      statusFault: { $in: ['Created', 'In progress', 'Suspended'] },
+      updatedAt: { $gt: since(seen.active) },
+    }),
+    Fault.countDocuments({
+      assignedMaintainers: userId,
+      statusFault: 'Overdue',
+      updatedAt: { $gt: since(seen.overdue) },
+    }),
+    Fault.countDocuments({
+      assignedMaintainers: userId,
+      statusFault: 'Completed',
+      updatedAt: { $gt: since(seen.completed) },
+    }),
+    // Pool = unassigned faults still up for grabs; "new" by creation time.
+    Fault.countDocuments({
+      assignedMaintainers: { $size: 0 },
+      statusFault: { $in: ['Created', 'Overdue'] },
+      createdAt: { $gt: since(seen.pool) },
+    }),
+  ]);
+
+  return res.status(200).json({ active, overdue, completed, pool });
+};
+
+// ---------- PATCH /maintenance-worker/seen ----------
+export const markMaintenanceTabSeen = async (req, res) => {
+  const userId = req.user._id;
+  const { tab } = req.body;
+  if (!SEEN_TABS.includes(tab)) {
+    throw createHttpError(400, 'Invalid tab');
+  }
+  await User.updateOne(
+    { _id: userId },
+    { $set: { [`maintenanceSeen.${tab}`]: new Date() } },
+  );
+  return res.status(204).end();
+};
+
 export const addFaultByMaintenanceWorker = async (req, res) => {
   const { faultId } = req.params;
   const {
@@ -182,16 +238,43 @@ export const addFaultByMaintenanceWorker = async (req, res) => {
     }
   }
 
+  const now = new Date();
+  // Effective start of the currently-running work span; falls back to
+  // claimedAt for faults claimed before work-time tracking existed.
+  const runningStart =
+    fault.workStartedAt ??
+    (previousStatus === 'In progress' ? fault.claimedAt : null);
+  const runningMs = runningStart
+    ? Math.max(0, now.getTime() - new Date(runningStart).getTime())
+    : 0;
+
   const updateData = { statusFault };
   if (commentMaintenanceWorker !== undefined) {
     updateData.commentMaintenanceWorker = commentMaintenanceWorker;
   }
+
   if (statusFault === 'Completed') {
-    updateData.actualDuration = actualDuration;
-    updateData.completedAt = new Date();
-  }
-  if (statusFault === 'Suspended') {
+    const finalMs = (fault.workedMs ?? 0) + runningMs;
+    updateData.workedMs = finalMs;
+    updateData.workStartedAt = null;
+    updateData.completedAt = now;
+    // Auto-computed default in minutes (min 1). The field is editable on
+    // the client, so an explicit value from the technician wins.
+    const computed = Math.max(1, Math.round(finalMs / 60000));
+    updateData.actualDuration =
+      actualDuration != null && actualDuration !== ''
+        ? actualDuration
+        : computed;
+  } else if (statusFault === 'Suspended') {
     updateData.suspensionReason = suspensionReason;
+    // Close the running span and pause the clock.
+    updateData.workedMs = (fault.workedMs ?? 0) + runningMs;
+    updateData.workStartedAt = null;
+  } else if (statusFault === 'In progress' && previousStatus === 'Suspended') {
+    // Resume — restart the clock without touching accumulated time, and
+    // re-arm the overtime alert for the new span.
+    updateData.workStartedAt = now;
+    updateData.overtimeNotifiedAt = null;
   }
   // Material used/needed is captured on both completion and suspension,
   // so persist it whenever the client sends it rather than gating it on

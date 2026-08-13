@@ -105,6 +105,13 @@ const systemSettingsSchema = new Schema(
       completedFaultsArchiveMonths: { type: Number, min: 1, max: 120, default: null },
     },
 
+    // Maintenance-worker behaviour.
+    maintenance: {
+      // Hours a fault may run past its planned duration before the
+      // technician is alerted (in-app modal + push). 0 disables it.
+      overtimeAlertHours: { type: Number, min: 0, max: 168, default: 2 },
+    },
+
     // Public board — "Segnalazioni" tab. By default it shows a rolling
     // window of the most recent faults; showAllFaults lifts the window so
     // the whole history is browsable (paginated).
