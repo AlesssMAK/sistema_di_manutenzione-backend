@@ -171,9 +171,13 @@ export const listInbox = async (req, res) => {
   const skip = (page - 1) * perPage;
   const [total, items] = await Promise.all([
     Message.countDocuments(filter),
+    // recipientId is populated too so the FE can show a direction label
+    // ("A: <name>") on sent messages when box=all.
     populateAuthor(
       Message.find(filter).sort({ createdAt: -1 }).skip(skip).limit(perPage),
-    ).lean(),
+    )
+      .populate({ path: 'recipientId', select: 'fullName role' })
+      .lean(),
   ]);
 
   return res.status(200).json({
@@ -182,6 +186,210 @@ export const listInbox = async (req, res) => {
     total,
     totalPages: Math.ceil(total / perPage),
     items,
+  });
+};
+
+// ---------- GET /messages/:id/thread ----------
+// Returns the whole conversation the :id belongs to — the thread root
+// (walked up via replyToId) plus every reply beneath it (walked down),
+// oldest-first, so the FE can render it as a chat. Only messages the
+// requester is a party to are returned, so a broadcast recipient never
+// sees another recipient's private replies to the author.
+export const getThread = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+  const role = req.user.role;
+
+  const idOf = (v) =>
+    v && typeof v === 'object' && v._id ? String(v._id) : String(v);
+
+  const isParty = (m) => {
+    if (m.type === MESSAGE_TYPE.DIRECT) {
+      return (
+        idOf(m.authorId) === String(userId) ||
+        idOf(m.recipientId) === String(userId)
+      );
+    }
+    if (m.type === MESSAGE_TYPE.BROADCAST_ROLE) {
+      return m.targetRole === role || idOf(m.authorId) === String(userId);
+    }
+    return true; // broadcast_all → everyone
+  };
+
+  const anchor = await Message.findById(id);
+  if (!anchor) throw createHttpError(404, 'Message not found');
+  if (!isParty(anchor)) {
+    throw createHttpError(403, 'Not allowed to view this conversation');
+  }
+
+  // Thread = root (walked up via replyToId) + every reply beneath it. A
+  // brand-new message has no replyToId, so it is its own thread; only
+  // replies extend it. Filtered to messages the requester is a party to.
+  let root = anchor;
+  const seen = new Set([String(root._id)]);
+  while (root.replyToId) {
+    const parent = await Message.findById(root.replyToId);
+    if (!parent || seen.has(String(parent._id))) break;
+    seen.add(String(parent._id));
+    root = parent;
+  }
+
+  const ids = [root._id];
+  const collected = new Set([String(root._id)]);
+  let frontier = [root._id];
+  while (frontier.length) {
+    const children = await Message.find(
+      { replyToId: { $in: frontier } },
+      '_id',
+    ).lean();
+    frontier = [];
+    for (const c of children) {
+      if (!collected.has(String(c._id))) {
+        collected.add(String(c._id));
+        ids.push(c._id);
+        frontier.push(c._id);
+      }
+    }
+  }
+
+  const messages = await populateAuthor(
+    Message.find({ _id: { $in: ids } }).sort({ createdAt: 1 }),
+  )
+    .populate({ path: 'recipientId', select: 'fullName role' })
+    .lean();
+
+  return res.status(200).json({ items: messages.filter(isParty) });
+};
+
+// ---------- GET /messages/conversations ----------
+// Chat-list view of the direct inbox: one entry per counterpart with the
+// latest message and the unread count, newest first.
+export const listConversations = async (req, res) => {
+  const canSend =
+    req.user.role !== 'operator' ||
+    req.user.permissions?.canSendMessages === true;
+  if (!canSend) throw createHttpError(403, 'No direct inbox');
+
+  const { page, perPage } = req.query;
+  const me = new mongoose.Types.ObjectId(String(req.user._id));
+
+  const result = await Message.aggregate([
+    {
+      $match: {
+        type: MESSAGE_TYPE.DIRECT,
+        $or: [{ authorId: me }, { recipientId: me }],
+      },
+    },
+    // Resolve each message's thread root by following replyToId up the
+    // chain; a message with no replyToId is its own root. This is what
+    // makes a brand-new message a separate topic from an earlier one.
+    {
+      $graphLookup: {
+        from: 'messages',
+        startWith: '$replyToId',
+        connectFromField: 'replyToId',
+        connectToField: '_id',
+        as: 'ancestors',
+      },
+    },
+    {
+      $addFields: {
+        rootId: {
+          $let: {
+            vars: {
+              rootAnc: {
+                $first: {
+                  $filter: {
+                    input: '$ancestors',
+                    as: 'a',
+                    cond: { $eq: ['$$a.replyToId', null] },
+                  },
+                },
+              },
+            },
+            in: { $ifNull: ['$$rootAnc._id', '$_id'] },
+          },
+        },
+        counterpart: {
+          $cond: [{ $eq: ['$authorId', me] }, '$recipientId', '$authorId'],
+        },
+      },
+    },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: '$rootId',
+        last: { $first: '$$ROOT' },
+        counterpart: { $first: '$counterpart' },
+        // Oldest message in the sorted stream = the thread root → its
+        // subject is the topic title.
+        subject: { $last: '$subject' },
+        unread: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ['$recipientId', me] },
+                  { $not: [{ $in: [me, { $ifNull: ['$readBy', []] }] }] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    },
+    { $sort: { 'last.createdAt': -1 } },
+    {
+      $facet: {
+        items: [
+          { $skip: (page - 1) * perPage },
+          { $limit: perPage },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'counterpart',
+              foreignField: '_id',
+              as: 'user',
+            },
+          },
+          { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              _id: 0,
+              threadId: '$_id',
+              subject: 1,
+              counterpart: {
+                _id: '$counterpart',
+                fullName: '$user.fullName',
+                role: '$user.role',
+              },
+              unread: 1,
+              last: {
+                _id: '$last._id',
+                subject: '$last.subject',
+                body: '$last.body',
+                createdAt: '$last.createdAt',
+                authorId: '$last.authorId',
+              },
+            },
+          },
+        ],
+        total: [{ $count: 'count' }],
+      },
+    },
+  ]);
+
+  const data = result[0] ?? { items: [], total: [] };
+  const total = data.total[0]?.count ?? 0;
+
+  return res.status(200).json({
+    page,
+    perPage,
+    total,
+    totalPages: Math.ceil(total / perPage),
+    items: data.items,
   });
 };
 
@@ -391,4 +599,74 @@ export const deleteMessage = async (req, res) => {
   });
 
   return res.status(204).end();
+};
+
+// ---------- DELETE /messages/:id/thread ----------
+// Wipes the whole conversation the :id belongs to (root + every reply).
+// For a direct thread either participant of the root (or an admin) may
+// delete it; for a broadcast thread only the broadcaster (root author)
+// or an admin may. This is the only path that removes another user's
+// messages, and it is scoped to the shared conversation.
+export const deleteThread = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+  const isAdmin = req.user.role === 'admin';
+
+  const idOf = (v) =>
+    v && typeof v === 'object' && v._id ? String(v._id) : String(v);
+
+  const anchor = await Message.findById(id);
+  if (!anchor) throw createHttpError(404, 'Message not found');
+
+  // Walk up to the thread root.
+  let root = anchor;
+  const seen = new Set([String(root._id)]);
+  while (root.replyToId) {
+    const parent = await Message.findById(root.replyToId);
+    if (!parent || seen.has(String(parent._id))) break;
+    seen.add(String(parent._id));
+    root = parent;
+  }
+
+  // Direct → either participant of the root may wipe the topic; broadcast
+  // → only the broadcaster (root author) or an admin.
+  const allowed =
+    isAdmin ||
+    idOf(root.authorId) === String(userId) ||
+    (root.type === MESSAGE_TYPE.DIRECT &&
+      idOf(root.recipientId) === String(userId));
+  if (!allowed) {
+    throw createHttpError(403, 'Not allowed to delete this conversation');
+  }
+
+  // Breadth-first down to collect every message in the thread.
+  const ids = [root._id];
+  const collected = new Set([String(root._id)]);
+  let frontier = [root._id];
+  while (frontier.length) {
+    const children = await Message.find(
+      { replyToId: { $in: frontier } },
+      '_id',
+    ).lean();
+    frontier = [];
+    for (const c of children) {
+      if (!collected.has(String(c._id))) {
+        collected.add(String(c._id));
+        ids.push(c._id);
+        frontier.push(c._id);
+      }
+    }
+  }
+
+  const result = await Message.deleteMany({ _id: { $in: ids } });
+
+  logFromRequest(req, {
+    action: 'message.delete',
+    targetType: 'Message',
+    targetId: new mongoose.Types.ObjectId(String(root._id)),
+    summary: `deleted thread (${result.deletedCount} messages)`,
+    meta: { thread: true, count: result.deletedCount },
+  });
+
+  return res.status(200).json({ deletedCount: result.deletedCount });
 };

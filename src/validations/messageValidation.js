@@ -66,6 +66,13 @@ export const listAnnouncementsSchema = {
   }),
 };
 
+export const listConversationsSchema = {
+  [Segments.QUERY]: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    perPage: Joi.number().integer().min(1).max(50).default(10),
+  }),
+};
+
 export const messageIdParamsSchema = {
   [Segments.PARAMS]: Joi.object({
     id: objectId.required(),
