@@ -65,6 +65,15 @@ const userSchema = new Schema(
       canCreateAnnouncements: { type: Boolean, default: false },
       canSendMessages: { type: Boolean, default: false },
     },
+    // Per-tab "last seen" timestamps for the maintenance-worker board.
+    // Drive the unseen-count badges: a fault counts as new when its
+    // relevant timestamp is later than the tab's lastSeen.
+    maintenanceSeen: {
+      active: { type: Date, default: null },
+      overdue: { type: Date, default: null },
+      completed: { type: Date, default: null },
+      pool: { type: Date, default: null },
+    },
   },
   { timestamps: true, versionKey: false },
 );

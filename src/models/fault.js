@@ -123,6 +123,25 @@ const faultSchema = new Schema(
     claimedAt: {
       type: Date,
     },
+    // Work-time accounting (excludes Suspended pauses). `workStartedAt`
+    // marks the start of the current In-progress span (null while
+    // suspended/completed); `workedMs` accumulates every finished span.
+    // Live worked time = workedMs + (workStartedAt ? now - workStartedAt : 0).
+    workStartedAt: {
+      type: Date,
+      default: null,
+    },
+    workedMs: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Set when the overtime push has been sent for the current work span,
+    // so the cron never spams. Cleared on claim/resume (new span).
+    overtimeNotifiedAt: {
+      type: Date,
+      default: null,
+    },
     autoRescheduledFrom: {
       plannedDate: { type: String },
       plannedTime: { type: String },

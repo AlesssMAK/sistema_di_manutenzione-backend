@@ -15,6 +15,7 @@ const PUBLIC_FIELDS = [
   'slotDurationMinutes',
   'holidays',
   'bacheca',
+  'maintenance',
   'updatedAt',
 ];
 
@@ -83,6 +84,17 @@ export const ensureSingleton = async () => {
       existing.weekSchedule = built;
       dirty = true;
       console.log('✅ SystemSettings backfilled weekSchedule');
+    }
+
+    // Backfill the maintenance group for documents created before it
+    // existed, so the overtime alert has a threshold to read.
+    if (existing.maintenance?.overtimeAlertHours === undefined) {
+      existing.maintenance = {
+        overtimeAlertHours:
+          systemSettingsDefaults.maintenance.overtimeAlertHours,
+      };
+      dirty = true;
+      console.log('✅ SystemSettings backfilled maintenance.overtimeAlertHours');
     }
 
     if (dirty) await existing.save();

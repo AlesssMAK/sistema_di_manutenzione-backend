@@ -79,6 +79,10 @@ const bachecaSchema = Joi.object({
   recentFaultsDays: Joi.number().integer().min(1).max(3650),
 });
 
+const maintenanceSchema = Joi.object({
+  overtimeAlertHours: Joi.number().min(0).max(168),
+});
+
 export const updateSystemSettingsSchema = {
   [Segments.BODY]: Joi.object({
     // IANA tz identifier (e.g. Europe/Rome). Loose pattern — luxon
@@ -95,6 +99,7 @@ export const updateSystemSettingsSchema = {
     messaging: messagingSchema,
     retention: retentionSchema,
     bacheca: bachecaSchema,
+    maintenance: maintenanceSchema,
   })
     .min(1)
     .required(),
