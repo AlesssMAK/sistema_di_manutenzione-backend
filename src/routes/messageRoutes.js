@@ -11,6 +11,7 @@ import {
   createBroadcastSchema,
   listInboxSchema,
   listAnnouncementsSchema,
+  listConversationsSchema,
   messageIdParamsSchema,
   replyMessageSchema,
 } from '../validations/messageValidation.js';
@@ -25,6 +26,9 @@ import {
   markAsRead,
   replyToMessage,
   deleteMessage,
+  getThread,
+  deleteThread,
+  listConversations,
 } from '../controllers/messageController.js';
 
 const router = Router();
@@ -60,7 +64,19 @@ router.get(
   ctrlWrapper(listAnnouncements),
 );
 
+router.get(
+  '/messages/conversations',
+  celebrate(listConversationsSchema),
+  ctrlWrapper(listConversations),
+);
+
 router.get('/messages/unread-count', ctrlWrapper(getUnreadCount));
+
+router.get(
+  '/messages/:id/thread',
+  celebrate(messageIdParamsSchema),
+  ctrlWrapper(getThread),
+);
 
 router.get(
   '/messages/allowed-senders',
@@ -79,6 +95,12 @@ router.post(
   upload.array('img', 5),
   celebrate(replyMessageSchema),
   ctrlWrapper(replyToMessage),
+);
+
+router.delete(
+  '/messages/:id/thread',
+  celebrate(messageIdParamsSchema),
+  ctrlWrapper(deleteThread),
 );
 
 router.delete(
