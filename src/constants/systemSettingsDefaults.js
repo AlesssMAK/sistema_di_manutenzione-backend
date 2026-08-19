@@ -50,5 +50,9 @@ export const systemSettingsDefaults = {
 
   warehouse: {
     enabled: false,
+    lowStock: {
+      notify: false,
+      roles: [],
+    },
   },
 };

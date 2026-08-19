@@ -85,6 +85,18 @@ const maintenanceSchema = Joi.object({
 
 const warehouseSchema = Joi.object({
   enabled: Joi.boolean(),
+  lowStock: Joi.object({
+    notify: Joi.boolean(),
+    roles: Joi.array().items(
+      Joi.string().valid(
+        'operator',
+        'admin',
+        'manager',
+        'maintenanceWorker',
+        'safety',
+      ),
+    ),
+  }),
 });
 
 export const updateSystemSettingsSchema = {

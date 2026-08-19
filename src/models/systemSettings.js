@@ -118,6 +118,13 @@ const systemSettingsSchema = new Schema(
     // it's on).
     warehouse: {
       enabled: { type: Boolean, default: false },
+      // Low-stock push alert: when a movement drops an item to/below its
+      // reorder point (or negative), notify the listed roles. Off by
+      // default; roles is a subset of the user role enum.
+      lowStock: {
+        notify: { type: Boolean, default: false },
+        roles: { type: [String], default: [] },
+      },
     },
 
     // Public board — "Segnalazioni" tab. By default it shows a rolling

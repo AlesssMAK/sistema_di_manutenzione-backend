@@ -7,6 +7,7 @@ import { Warehouse } from '../models/warehouse.js';
 import { MOVEMENT_TYPE, REFERENCE_TYPE } from '../constants/warehouse.js';
 import { STATUS } from '../constants/status.js';
 import { logFromRequest } from '../services/auditLog.js';
+import { isLowForAlert, notifyLowStock } from '../services/warehouseAlerts.js';
 
 const ensureWarehouse = async (warehouseId) => {
   const warehouse = await Warehouse.findById(warehouseId);
@@ -146,7 +147,7 @@ export const stockIn = async (req, res) => {
 // come back as warnings.
 export const stockOut = async (req, res) => {
   const { warehouseId, lines, reference, note } = req.body;
-  await ensureWarehouse(warehouseId);
+  const warehouse = await ensureWarehouse(warehouseId);
   const itemsById = await loadItems(lines);
 
   const ref = reference ?? { type: REFERENCE_TYPE.NONE };
@@ -195,6 +196,11 @@ export const stockOut = async (req, res) => {
     meta: { batchId, lines: lines.length, reference: ref },
   });
 
+  // Fire-and-forget low-stock alert for items that crossed the reorder
+  // point (or went negative).
+  const lowItems = warnings.filter((w) => isLowForAlert(w.quantity, w.minLevel));
+  notifyLowStock(lowItems, warehouse);
+
   res.status(201).json({
     success: true,
     message: 'Stock issued successfully',
@@ -206,7 +212,7 @@ export const stockOut = async (req, res) => {
 // value. The movement stores the counted absolute quantity.
 export const stockAdjust = async (req, res) => {
   const { warehouseId, itemId, quantity, note } = req.body;
-  await ensureWarehouse(warehouseId);
+  const warehouse = await ensureWarehouse(warehouseId);
 
   const item = await InventoryItem.findById(itemId);
   if (!item) throw createHttpError(400, 'Item does not exist');
@@ -237,6 +243,21 @@ export const stockAdjust = async (req, res) => {
     summary: `Adjusted ${item.name} from ${previous} to ${quantity}`,
     meta: { warehouseId, previous, quantity },
   });
+
+  if (isLowForAlert(level.quantity, level.minLevel)) {
+    notifyLowStock(
+      [
+        {
+          itemId,
+          name: item.name,
+          quantity: level.quantity,
+          minLevel: level.minLevel,
+          negative: level.quantity < 0,
+        },
+      ],
+      warehouse,
+    );
+  }
 
   res.status(200).json({
     success: true,
