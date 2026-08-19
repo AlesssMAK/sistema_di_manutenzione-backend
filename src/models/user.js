@@ -62,8 +62,14 @@ const userSchema = new Schema(
       // tab. canCreateAnnouncements → publish to the public board;
       // canSendMessages → lets an operator use direct messaging
       // (other roles can already message).
+      // canManageWarehouse → manage the warehouse catalog/config
+      // (warehouses, units, items). canOperateWarehouse → move stock
+      // (receive, issue, adjust). Both are role-agnostic so a future
+      // warehouse-keeper is simply a user with these grants.
       canCreateAnnouncements: { type: Boolean, default: false },
       canSendMessages: { type: Boolean, default: false },
+      canManageWarehouse: { type: Boolean, default: false },
+      canOperateWarehouse: { type: Boolean, default: false },
     },
     // Per-tab "last seen" timestamps for the maintenance-worker board.
     // Drive the unseen-count badges: a fault counts as new when its

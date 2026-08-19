@@ -31,6 +31,7 @@ import cronRoutes from './routes/cronRoutes.js';
 import safetyRoutes from './routes/safetyRoutes.js';
 import pushRoutes from './routes/pushRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
+import warehouseRoutes from './routes/warehouseRoutes.js';
 import demoRoutes from './routes/demoRoutes.js';
 
 export const buildApp = ({ withAdmin = true, withSwagger = true } = {}) => {
@@ -81,6 +82,7 @@ export const buildApp = ({ withAdmin = true, withSwagger = true } = {}) => {
   app.use(safetyRoutes);
   app.use(pushRoutes);
   app.use(announcementRoutes);
+  app.use(warehouseRoutes);
 
   app.use(notFoundHandler);
   app.use(errors());

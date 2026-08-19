@@ -112,6 +112,14 @@ const systemSettingsSchema = new Schema(
       overtimeAlertHours: { type: Number, min: 0, max: 168, default: 2 },
     },
 
+    // Warehouse / inventory module. Off by default — it's an optional
+    // add-on. While disabled the page, nav link and every /warehouse
+    // API are blocked for everyone (per-user grants only matter once
+    // it's on).
+    warehouse: {
+      enabled: { type: Boolean, default: false },
+    },
+
     // Public board — "Segnalazioni" tab. By default it shows a rolling
     // window of the most recent faults; showAllFaults lifts the window so
     // the whole history is browsable (paginated).

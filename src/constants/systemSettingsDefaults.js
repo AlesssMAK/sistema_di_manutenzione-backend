@@ -47,4 +47,8 @@ export const systemSettingsDefaults = {
   maintenance: {
     overtimeAlertHours: 2,
   },
+
+  warehouse: {
+    enabled: false,
+  },
 };

@@ -16,6 +16,7 @@ const PUBLIC_FIELDS = [
   'holidays',
   'bacheca',
   'maintenance',
+  'warehouse',
   'updatedAt',
 ];
 
@@ -95,6 +96,14 @@ export const ensureSingleton = async () => {
       };
       dirty = true;
       console.log('✅ SystemSettings backfilled maintenance.overtimeAlertHours');
+    }
+
+    // Backfill the warehouse group (module off by default) for documents
+    // created before the inventory feature existed.
+    if (existing.warehouse?.enabled === undefined) {
+      existing.warehouse = { enabled: systemSettingsDefaults.warehouse.enabled };
+      dirty = true;
+      console.log('✅ SystemSettings backfilled warehouse.enabled');
     }
 
     if (dirty) await existing.save();

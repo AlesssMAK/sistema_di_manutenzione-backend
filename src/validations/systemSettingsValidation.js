@@ -83,6 +83,10 @@ const maintenanceSchema = Joi.object({
   overtimeAlertHours: Joi.number().min(0).max(168),
 });
 
+const warehouseSchema = Joi.object({
+  enabled: Joi.boolean(),
+});
+
 export const updateSystemSettingsSchema = {
   [Segments.BODY]: Joi.object({
     // IANA tz identifier (e.g. Europe/Rome). Loose pattern — luxon
@@ -100,6 +104,7 @@ export const updateSystemSettingsSchema = {
     retention: retentionSchema,
     bacheca: bachecaSchema,
     maintenance: maintenanceSchema,
+    warehouse: warehouseSchema,
   })
     .min(1)
     .required(),
