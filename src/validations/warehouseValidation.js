@@ -107,6 +107,10 @@ export const itemIdSchema = {
   [Segments.PARAMS]: Joi.object({ itemId: objectId().required() }),
 };
 
+export const itemByCodeSchema = {
+  [Segments.PARAMS]: Joi.object({ code: Joi.string().trim().required() }),
+};
+
 export const listItemsSchema = listQuery;
 export const listUnitsSchema = listQuery;
 export const listWarehousesSchema = listQuery;
