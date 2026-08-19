@@ -49,6 +49,23 @@ export const createItem = async (req, res) => {
   });
 };
 
+// Resolve a scanned QR/barcode (the item's SKU) to the item. Used by
+// the camera scanner in the stock movement flows.
+export const getItemByCode = async (req, res) => {
+  const { code } = req.params;
+  const item = await InventoryItem.findOne({ code }).populate(
+    'unitId',
+    'code name',
+  );
+  if (!item) throw createHttpError(404, 'Item not found');
+
+  res.status(200).json({
+    success: true,
+    message: 'Get item by code endpoint',
+    data: item,
+  });
+};
+
 export const getAllItems = async (req, res) => {
   const { search, status, page = 1, perPage = 10 } = req.query;
   const skip = (page - 1) * perPage;

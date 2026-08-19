@@ -18,6 +18,7 @@ import {
   createItemSchema,
   updateItemSchema,
   itemIdSchema,
+  itemByCodeSchema,
   listItemsSchema,
   stockQuerySchema,
   stockInSchema,
@@ -40,6 +41,7 @@ import {
 import {
   createItem,
   getAllItems,
+  getItemByCode,
   updateItem,
   deactivateItem,
 } from '../controllers/inventoryItemController.js';
@@ -140,6 +142,14 @@ router.get(
   canRead,
   celebrate(listItemsSchema),
   ctrlWrapper(getAllItems),
+);
+router.get(
+  '/warehouse/items/by-code/:code',
+  authenticate,
+  requireWarehouseEnabled,
+  canRead,
+  celebrate(itemByCodeSchema),
+  ctrlWrapper(getItemByCode),
 );
 router.post(
   '/warehouse/items',
