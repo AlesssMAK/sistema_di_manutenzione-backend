@@ -101,9 +101,18 @@ export const ensureSingleton = async () => {
     // Backfill the warehouse group (module off by default) for documents
     // created before the inventory feature existed.
     if (existing.warehouse?.enabled === undefined) {
-      existing.warehouse = { enabled: systemSettingsDefaults.warehouse.enabled };
+      existing.warehouse = {
+        enabled: systemSettingsDefaults.warehouse.enabled,
+        lowStock: { ...systemSettingsDefaults.warehouse.lowStock },
+      };
       dirty = true;
       console.log('✅ SystemSettings backfilled warehouse.enabled');
+    } else if (existing.warehouse.lowStock?.notify === undefined) {
+      existing.warehouse.lowStock = {
+        ...systemSettingsDefaults.warehouse.lowStock,
+      };
+      dirty = true;
+      console.log('✅ SystemSettings backfilled warehouse.lowStock');
     }
 
     if (dirty) await existing.save();
