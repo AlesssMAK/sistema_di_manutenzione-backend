@@ -50,6 +50,8 @@ export const updateProfile = async (req, res) => {
     updates.permissions = {
       canCreateAnnouncements: current.canCreateAnnouncements ?? false,
       canSendMessages: current.canSendMessages ?? false,
+      canManageWarehouse: current.canManageWarehouse ?? false,
+      canOperateWarehouse: current.canOperateWarehouse ?? false,
       ...updates.permissions,
     };
   }
