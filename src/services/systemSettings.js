@@ -115,6 +115,14 @@ export const ensureSingleton = async () => {
       console.log('✅ SystemSettings backfilled warehouse.lowStock');
     }
 
+    if (existing.warehouse && existing.warehouse.labels?.qr === undefined) {
+      existing.warehouse.labels = {
+        ...systemSettingsDefaults.warehouse.labels,
+      };
+      dirty = true;
+      console.log('✅ SystemSettings backfilled warehouse.labels');
+    }
+
     if (dirty) await existing.save();
     cached = existing.toObject();
     console.log('✅ SystemSettings loaded');

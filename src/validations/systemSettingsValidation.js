@@ -97,6 +97,10 @@ const warehouseSchema = Joi.object({
       ),
     ),
   }),
+  labels: Joi.object({
+    qr: Joi.boolean(),
+    barcode: Joi.boolean(),
+  }),
 });
 
 export const updateSystemSettingsSchema = {

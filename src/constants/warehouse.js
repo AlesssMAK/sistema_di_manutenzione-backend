@@ -10,9 +10,12 @@ export const MOVEMENT_TYPE = {
 };
 
 // What an OUT movement was consumed for. A write-off can be tied to a
-// fault, to a free-text task/order, or to nothing (ad-hoc).
+// fault, to a free-text task/order, or to nothing (ad-hoc). TRANSFER is
+// the paired out/in created when moving stock between warehouses (the
+// label holds the counterpart warehouse name).
 export const REFERENCE_TYPE = {
   FAULT: 'fault',
   TASK: 'task',
+  TRANSFER: 'transfer',
   NONE: 'none',
 };
