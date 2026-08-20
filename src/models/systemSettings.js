@@ -125,6 +125,13 @@ const systemSettingsSchema = new Schema(
         notify: { type: Boolean, default: false },
         roles: { type: [String], default: [] },
       },
+      // Which printable label formats are available to technicians. When
+      // more than one is enabled the technician picks per print (choice
+      // remembered client-side); none disables label printing.
+      labels: {
+        qr: { type: Boolean, default: true },
+        barcode: { type: Boolean, default: true },
+      },
     },
 
     // Public board — "Segnalazioni" tab. By default it shows a rolling

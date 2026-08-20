@@ -54,5 +54,9 @@ export const systemSettingsDefaults = {
       notify: false,
       roles: [],
     },
+    labels: {
+      qr: true,
+      barcode: true,
+    },
   },
 };

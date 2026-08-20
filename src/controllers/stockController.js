@@ -272,6 +272,100 @@ export const stockAdjust = async (req, res) => {
   });
 };
 
+// Move stock between two warehouses: for each line an OUT from the
+// source and an IN to the destination, sharing a batchId and tagged as
+// a transfer (label = counterpart warehouse). Issuing more than on-hand
+// at the source is allowed; low/negative source lines come back as
+// warnings.
+export const stockTransfer = async (req, res) => {
+  const { fromWarehouseId, toWarehouseId, lines, note } = req.body;
+  if (String(fromWarehouseId) === String(toWarehouseId)) {
+    throw createHttpError(400, 'Source and destination must differ');
+  }
+  const [fromWarehouse, toWarehouse] = await Promise.all([
+    ensureWarehouse(fromWarehouseId),
+    ensureWarehouse(toWarehouseId),
+  ]);
+  const itemsById = await loadItems(lines);
+
+  const batchId = new mongoose.Types.ObjectId();
+  const results = [];
+  const warnings = [];
+
+  for (const line of lines) {
+    const fromLevel = await StockLevel.findOneAndUpdate(
+      { itemId: line.itemId, warehouseId: fromWarehouseId },
+      { $inc: { quantity: -line.quantity }, $setOnInsert: { minLevel: 0 } },
+      { new: true, upsert: true },
+    );
+    const toLevel = await StockLevel.findOneAndUpdate(
+      { itemId: line.itemId, warehouseId: toWarehouseId },
+      { $inc: { quantity: line.quantity }, $setOnInsert: { minLevel: 0 } },
+      { new: true, upsert: true },
+    );
+
+    await StockMovement.create([
+      {
+        itemId: line.itemId,
+        warehouseId: fromWarehouseId,
+        type: MOVEMENT_TYPE.OUT,
+        quantity: line.quantity,
+        userId: req.user._id,
+        userName: req.user.fullName,
+        reference: { type: REFERENCE_TYPE.TRANSFER, label: toWarehouse.name },
+        note,
+        batchId,
+      },
+      {
+        itemId: line.itemId,
+        warehouseId: toWarehouseId,
+        type: MOVEMENT_TYPE.IN,
+        quantity: line.quantity,
+        userId: req.user._id,
+        userName: req.user.fullName,
+        reference: { type: REFERENCE_TYPE.TRANSFER, label: fromWarehouse.name },
+        note,
+        batchId,
+      },
+    ]);
+
+    const name = itemsById.get(String(line.itemId))?.name;
+    results.push({
+      itemId: line.itemId,
+      name,
+      from: fromLevel.quantity,
+      to: toLevel.quantity,
+    });
+
+    if (fromLevel.quantity < 0 || fromLevel.quantity <= fromLevel.minLevel) {
+      warnings.push({
+        itemId: line.itemId,
+        name,
+        quantity: fromLevel.quantity,
+        minLevel: fromLevel.minLevel,
+        negative: fromLevel.quantity < 0,
+      });
+    }
+  }
+
+  await logFromRequest(req, {
+    action: 'stock.transfer',
+    targetType: 'Warehouse',
+    targetId: fromWarehouseId,
+    summary: `Transferred ${lines.length} line(s) from ${fromWarehouse.name} to ${toWarehouse.name}`,
+    meta: { batchId, lines: lines.length, toWarehouseId },
+  });
+
+  const lowItems = warnings.filter((w) => isLowForAlert(w.quantity, w.minLevel));
+  notifyLowStock(lowItems, fromWarehouse);
+
+  res.status(201).json({
+    success: true,
+    message: 'Stock transferred successfully',
+    data: { batchId, results, warnings },
+  });
+};
+
 // Movement history, newest first. Filterable by item, warehouse, fault
 // or movement type.
 export const getMovements = async (req, res) => {

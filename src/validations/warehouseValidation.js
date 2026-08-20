@@ -159,6 +159,15 @@ export const stockOutSchema = {
   }),
 };
 
+export const stockTransferSchema = {
+  [Segments.BODY]: Joi.object({
+    fromWarehouseId: objectId().required(),
+    toWarehouseId: objectId().required().invalid(Joi.ref('fromWarehouseId')),
+    lines: Joi.array().items(movementLine).min(1).required(),
+    note: Joi.string().trim().allow('', null),
+  }),
+};
+
 export const stockAdjustSchema = {
   [Segments.BODY]: Joi.object({
     warehouseId: objectId().required(),

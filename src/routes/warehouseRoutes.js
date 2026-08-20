@@ -24,6 +24,7 @@ import {
   stockInSchema,
   stockOutSchema,
   stockAdjustSchema,
+  stockTransferSchema,
   movementsQuerySchema,
 } from '../validations/warehouseValidation.js';
 import {
@@ -50,6 +51,7 @@ import {
   stockIn,
   stockOut,
   stockAdjust,
+  stockTransfer,
   getMovements,
 } from '../controllers/stockController.js';
 
@@ -216,6 +218,14 @@ router.post(
   canMove,
   celebrate(stockAdjustSchema),
   ctrlWrapper(stockAdjust),
+);
+router.post(
+  '/warehouse/movements/transfer',
+  authenticate,
+  requireWarehouseEnabled,
+  canMove,
+  celebrate(stockTransferSchema),
+  ctrlWrapper(stockTransfer),
 );
 
 export default router;
