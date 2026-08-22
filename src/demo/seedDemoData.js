@@ -21,11 +21,6 @@ import { Warehouse } from '../models/warehouse.js';
 import { InventoryItem } from '../models/inventoryItem.js';
 import { StockLevel } from '../models/stockLevel.js';
 import { StockMovement } from '../models/stockMovement.js';
-import { SystemSettings } from '../models/systemSettings.js';
-import {
-  ensureSingleton,
-  invalidateCache,
-} from '../services/systemSettings.js';
 import { STATUS_FAULT } from '../constants/statusFault.js';
 import { TYPE_FAULT } from '../constants/typeFault.js';
 import { TYPE_PRIORITY } from '../constants/typePriority.js';
@@ -289,25 +284,9 @@ export const resetAndSeedDemo = async () => {
   ]);
 
   // ── Warehouse / inventory demo world ──────────────────────────────
-  // Enable the module (off by default) so the demo shows it, with both
-  // label formats available. ensureSingleton guarantees a complete,
-  // valid settings doc first; invalidateCache so a running server picks
-  // the change up immediately.
-  await ensureSingleton();
-  await SystemSettings.updateOne(
-    { _id: 'global' },
-    {
-      $set: {
-        warehouse: {
-          enabled: true,
-          lowStock: { notify: false, roles: [] },
-          labels: { qr: true, barcode: true },
-        },
-      },
-    },
-  );
-  invalidateCache();
-
+  // No settings toggle needed: in DEMO_MODE the warehouse module is
+  // always on (see toPublicView / requireWarehouseEnabled), so the seed
+  // just inserts data — same as plants and users.
   const [uPz, uM, , uL] = await Unit.create([
     { code: 'pz', name: 'Pezzi' },
     { code: 'm', name: 'Metri' },

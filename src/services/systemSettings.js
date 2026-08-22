@@ -3,6 +3,7 @@ import {
   SYSTEM_SETTINGS_ID,
   systemSettingsDefaults,
 } from '../constants/systemSettingsDefaults.js';
+import { isDemoMode } from '../constants/demo.js';
 
 let cached = null;
 
@@ -154,6 +155,15 @@ export const toPublicView = (settings) => {
   const view = {};
   for (const key of PUBLIC_FIELDS) {
     if (settings[key] !== undefined) view[key] = settings[key];
+  }
+  // Demo: the warehouse module is always on, so the seeded inventory is
+  // visible without depending on the settings cache or a server restart.
+  if (isDemoMode()) {
+    view.warehouse = {
+      ...(view.warehouse ?? {}),
+      enabled: true,
+      labels: view.warehouse?.labels ?? { qr: true, barcode: true },
+    };
   }
   return view;
 };

@@ -1,11 +1,14 @@
 import createHttpError from 'http-errors';
 import { getSettings } from '../services/systemSettings.js';
+import { isDemoMode } from '../constants/demo.js';
 
 // Global kill-switch. While SystemSettings.warehouse.enabled is false the
 // whole inventory module is off — every /warehouse route is blocked for
 // everyone, admins included, and per-user grants don't matter. Admins
-// flip it on from the system-settings page.
+// flip it on from the system-settings page. In the demo the module is
+// always on, so the seeded data is reachable without a restart.
 export const requireWarehouseEnabled = async (req, res, next) => {
+  if (isDemoMode()) return next();
   const settings = await getSettings();
   if (settings?.warehouse?.enabled !== true) {
     throw createHttpError(403, 'Warehouse module is disabled');
