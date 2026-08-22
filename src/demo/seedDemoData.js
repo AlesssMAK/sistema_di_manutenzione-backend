@@ -16,6 +16,11 @@ import { Fault } from '../models/fault.js';
 import { Announcement } from '../models/announcement.js';
 import { Message } from '../models/message.js';
 import { Session } from '../models/session.js';
+import { Unit } from '../models/unit.js';
+import { Warehouse } from '../models/warehouse.js';
+import { InventoryItem } from '../models/inventoryItem.js';
+import { StockLevel } from '../models/stockLevel.js';
+import { StockMovement } from '../models/stockMovement.js';
 import { STATUS_FAULT } from '../constants/statusFault.js';
 import { TYPE_FAULT } from '../constants/typeFault.js';
 import { TYPE_PRIORITY } from '../constants/typePriority.js';
@@ -52,6 +57,11 @@ export const resetAndSeedDemo = async () => {
     Announcement.deleteMany({}),
     Message.deleteMany({}),
     Session.deleteMany({}),
+    Unit.deleteMany({}),
+    Warehouse.deleteMany({}),
+    InventoryItem.deleteMany({}),
+    StockLevel.deleteMany({}),
+    StockMovement.deleteMany({}),
   ]);
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
@@ -80,6 +90,7 @@ export const resetAndSeedDemo = async () => {
       email: 'maintainer@demo.local',
       password: passwordHash,
       isFirstLogin: false,
+      permissions: { canManageWarehouse: true, canOperateWarehouse: true },
     },
     {
       role: 'safety',
@@ -101,6 +112,7 @@ export const resetAndSeedDemo = async () => {
       email: 'maintainer2@demo.local',
       password: passwordHash,
       isFirstLogin: false,
+      permissions: { canOperateWarehouse: true },
     },
     {
       role: 'maintenanceWorker',
@@ -134,7 +146,7 @@ export const resetAndSeedDemo = async () => {
     { plantId: plant2._id, namePlantPart: 'Sensore di posizione', codePlantPart: 'SEN-01' },
   ]);
 
-  await Fault.create([
+  const faults = await Fault.create([
     {
       faultId: 'GUASTO-0001',
       nameOperator: operator.fullName,
@@ -271,6 +283,90 @@ export const resetAndSeedDemo = async () => {
     },
   ]);
 
+  // ── Warehouse / inventory demo world ──────────────────────────────
+  // No settings toggle needed: in DEMO_MODE the warehouse module is
+  // always on (see toPublicView / requireWarehouseEnabled), so the seed
+  // just inserts data — same as plants and users.
+  const [uPz, uM, , uL] = await Unit.create([
+    { code: 'pz', name: 'Pezzi' },
+    { code: 'm', name: 'Metri' },
+    { code: 'kg', name: 'Chilogrammi' },
+    { code: 'l', name: 'Litri' },
+  ]);
+
+  const [whCentral, whLineA] = await Warehouse.create([
+    { code: 'MAG-01', name: 'Magazzino Centrale', location: 'Capannone A' },
+    { code: 'MAG-02', name: 'Magazzino Linea A', location: 'Capannone A - Linea 1' },
+  ]);
+
+  // One item carries a 13-digit EAN-like code to demo barcode scanning.
+  const items = await InventoryItem.create([
+    { code: 'OIL-HYD-46', name: 'Olio idraulico ISO 46', category: 'Lubrificanti', unitId: uL._id },
+    { code: 'BELT-A42', name: 'Cinghia trapezoidale A42', category: 'Trasmissione', unitId: uPz._id },
+    { code: 'BEARING-6204', name: 'Cuscinetto 6204 2RS', category: 'Cuscinetti', unitId: uPz._id },
+    { code: 'SENS-IND-M12', name: 'Sensore induttivo M12', category: 'Elettronica', unitId: uPz._id },
+    { code: '8001234567890', name: 'Guanti antitaglio (paio)', category: 'DPI', unitId: uPz._id },
+    { code: 'HOSE-PN10-19', name: 'Tubo idraulico PN10 19mm', category: 'Idraulica', unitId: uM._id },
+  ]);
+
+  // On-hand per (item x warehouse); a few sit at/below minLevel to demo
+  // the low-stock badge.
+  await StockLevel.create([
+    { itemId: items[0]._id, warehouseId: whCentral._id, quantity: 120, minLevel: 40 },
+    { itemId: items[1]._id, warehouseId: whCentral._id, quantity: 8, minLevel: 10 },
+    { itemId: items[2]._id, warehouseId: whCentral._id, quantity: 24, minLevel: 8 },
+    { itemId: items[3]._id, warehouseId: whCentral._id, quantity: 3, minLevel: 5 },
+    { itemId: items[4]._id, warehouseId: whCentral._id, quantity: 50, minLevel: 20 },
+    { itemId: items[5]._id, warehouseId: whCentral._id, quantity: 60, minLevel: 15 },
+    { itemId: items[1]._id, warehouseId: whLineA._id, quantity: 4, minLevel: 6 },
+    { itemId: items[2]._id, warehouseId: whLineA._id, quantity: 12, minLevel: 4 },
+    { itemId: items[3]._id, warehouseId: whLineA._id, quantity: 6, minLevel: 3 },
+  ]);
+
+  await StockMovement.create([
+    {
+      itemId: items[0]._id,
+      warehouseId: whCentral._id,
+      type: 'in',
+      quantity: 120,
+      userId: admin._id,
+      userName: admin.fullName,
+      note: 'Carico iniziale magazzino',
+      createdAt: daysAgo(20),
+    },
+    {
+      itemId: items[2]._id,
+      warehouseId: whCentral._id,
+      type: 'out',
+      quantity: 2,
+      userId: maintainer2._id,
+      userName: maintainer2.fullName,
+      reference: { type: 'fault', faultId: faults[2]._id },
+      note: 'Materiale usato per GUASTO-0003',
+      createdAt: daysAgo(4),
+    },
+    {
+      itemId: items[1]._id,
+      warehouseId: whCentral._id,
+      type: 'out',
+      quantity: 1,
+      userId: maintainer._id,
+      userName: maintainer.fullName,
+      reference: { type: 'task', label: 'Manutenzione preventiva' },
+      createdAt: daysAgo(2),
+    },
+    {
+      itemId: items[3]._id,
+      warehouseId: whLineA._id,
+      type: 'adjust',
+      quantity: 6,
+      userId: admin._id,
+      userName: admin.fullName,
+      note: 'Rettifica inventario',
+      createdAt: daysAgo(1),
+    },
+  ]);
+
   return {
     users: 7,
     plants: 2,
@@ -278,6 +374,9 @@ export const resetAndSeedDemo = async () => {
     faults: 5,
     announcements: 3,
     messages: 2,
+    warehouses: 2,
+    units: 4,
+    items: items.length,
     safetyUser: safety.email,
   };
 };
