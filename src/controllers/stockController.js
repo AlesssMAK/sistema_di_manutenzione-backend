@@ -66,8 +66,8 @@ export const getStock = async (req, res) => {
       .limit(perPage)
       .populate({
         path: 'itemId',
-        select: 'code name category unitId status',
-        populate: { path: 'unitId', select: 'code name' },
+        select: 'code name category unitId packageLabel unitsPerPackage status',
+        populate: { path: 'unitId', select: 'code name allowsDecimals' },
       })
       .populate('warehouseId', 'code name'),
   ]);
