@@ -6,13 +6,19 @@ import { isDemoMode } from '../constants/demo.js';
 import { logFromRequest } from '../services/auditLog.js';
 
 export const createUnit = async (req, res) => {
-  const { code, name, status } = req.body;
+  const { code, name, allowsDecimals, status } = req.body;
 
   if (isDemoMode()) {
     return res.status(201).json({
       success: true,
       message: 'Unit created successfully',
-      data: { _id: 'demo', code, name, status: status ?? STATUS.ACTIVE },
+      data: {
+        _id: 'demo',
+        code,
+        name,
+        allowsDecimals: allowsDecimals ?? false,
+        status: status ?? STATUS.ACTIVE,
+      },
     });
   }
 
@@ -21,7 +27,7 @@ export const createUnit = async (req, res) => {
     throw createHttpError(409, `A unit with code "${code}" already exists`);
   }
 
-  const unit = await Unit.create({ code, name, status });
+  const unit = await Unit.create({ code, name, allowsDecimals, status });
 
   await logFromRequest(req, {
     action: 'unit.create',

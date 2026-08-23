@@ -287,11 +287,13 @@ export const resetAndSeedDemo = async () => {
   // No settings toggle needed: in DEMO_MODE the warehouse module is
   // always on (see toPublicView / requireWarehouseEnabled), so the seed
   // just inserts data — same as plants and users.
+  // Piece-like units stay integer; continuous ones allow decimals.
   const [uPz, uM, , uL] = await Unit.create([
-    { code: 'pz', name: 'Pezzi' },
-    { code: 'm', name: 'Metri' },
-    { code: 'kg', name: 'Chilogrammi' },
-    { code: 'l', name: 'Litri' },
+    { code: 'pz', name: 'Pezzi', allowsDecimals: false },
+    { code: 'm', name: 'Metri', allowsDecimals: true },
+    { code: 'kg', name: 'Chilogrammi', allowsDecimals: true },
+    { code: 'l', name: 'Litri', allowsDecimals: true },
+    { code: 'cm', name: 'Centimetri', allowsDecimals: true },
   ]);
 
   const [whCentral, whLineA] = await Warehouse.create([
@@ -307,6 +309,9 @@ export const resetAndSeedDemo = async () => {
     { code: 'SENS-IND-M12', name: 'Sensore induttivo M12', category: 'Elettronica', unitId: uPz._id },
     { code: '8001234567890', name: 'Guanti antitaglio (paio)', category: 'DPI', unitId: uPz._id },
     { code: 'HOSE-PN10-19', name: 'Tubo idraulico PN10 19mm', category: 'Idraulica', unitId: uM._id },
+    // Delivered in boxes of 100 but consumed by the piece — demoes the
+    // package-intake flow (Carico in "Scatole", Scarico in "Pezzi").
+    { code: 'VITE-4X40', name: 'Viti autofilettanti 4x40', category: 'Minuteria', unitId: uPz._id, packageLabel: 'Scatola', unitsPerPackage: 100 },
   ]);
 
   // On-hand per (item x warehouse); a few sit at/below minLevel to demo
@@ -321,6 +326,7 @@ export const resetAndSeedDemo = async () => {
     { itemId: items[1]._id, warehouseId: whLineA._id, quantity: 4, minLevel: 6 },
     { itemId: items[2]._id, warehouseId: whLineA._id, quantity: 12, minLevel: 4 },
     { itemId: items[3]._id, warehouseId: whLineA._id, quantity: 6, minLevel: 3 },
+    { itemId: items[6]._id, warehouseId: whCentral._id, quantity: 250, minLevel: 100 },
   ]);
 
   await StockMovement.create([
@@ -375,7 +381,7 @@ export const resetAndSeedDemo = async () => {
     announcements: 3,
     messages: 2,
     warehouses: 2,
-    units: 4,
+    units: 5,
     items: items.length,
     safetyUser: safety.email,
   };

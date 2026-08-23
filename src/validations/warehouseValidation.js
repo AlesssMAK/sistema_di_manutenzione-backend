@@ -14,7 +14,9 @@ const listQuery = {
     search: Joi.string().trim().allow('', null),
     status: Joi.string().valid(...Object.values(STATUS)),
     page: Joi.number().integer().min(1).default(1),
-    perPage: Joi.number().integer().min(1).max(100).default(10),
+    // Up to 200 so the FE "pool" selects (warehouses/units/items) can
+    // fetch the full roster in one request.
+    perPage: Joi.number().integer().min(1).max(200).default(10),
   }),
 };
 
@@ -24,6 +26,7 @@ export const createUnitSchema = {
   [Segments.BODY]: Joi.object({
     code: Joi.string().trim().required(),
     name: Joi.string().trim().required(),
+    allowsDecimals: Joi.boolean().default(false),
     status: Joi.string()
       .valid(...Object.values(STATUS))
       .default(STATUS.ACTIVE),
@@ -35,6 +38,7 @@ export const updateUnitSchema = {
   [Segments.BODY]: Joi.object({
     code: Joi.string().trim().optional(),
     name: Joi.string().trim().optional(),
+    allowsDecimals: Joi.boolean().optional(),
     status: Joi.string()
       .valid(...Object.values(STATUS))
       .optional(),
@@ -82,6 +86,8 @@ export const createItemSchema = {
     name: Joi.string().trim().required(),
     category: Joi.string().trim().allow('', null),
     unitId: objectId().required(),
+    packageLabel: Joi.string().trim().allow('', null),
+    unitsPerPackage: Joi.number().positive().allow(null),
     note: Joi.string().trim().allow('', null),
     status: Joi.string()
       .valid(...Object.values(STATUS))
@@ -96,6 +102,8 @@ export const updateItemSchema = {
     name: Joi.string().trim().optional(),
     category: Joi.string().trim().allow('', null),
     unitId: objectId().optional(),
+    packageLabel: Joi.string().trim().allow('', null),
+    unitsPerPackage: Joi.number().positive().allow(null),
     note: Joi.string().trim().allow('', null),
     status: Joi.string()
       .valid(...Object.values(STATUS))

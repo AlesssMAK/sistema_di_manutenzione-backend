@@ -11,6 +11,13 @@ const inventoryItemSchema = new Schema(
     name: { type: String, required: true },
     category: { type: String },
     unitId: { type: Schema.Types.ObjectId, ref: 'Unit', required: true },
+    // Optional package intake: items delivered in boxes/rolls/canisters
+    // store how many usage-units one package holds. `unitsPerPackage`
+    // lets the Carico (stock-in) form accept a package count and expand
+    // it to usage-units; `packageLabel` names the package for display
+    // (e.g. "Scatola", "Rotolo"). Consumption stays in the usage unit.
+    packageLabel: { type: String },
+    unitsPerPackage: { type: Number, min: 0 },
     note: { type: String },
     status: {
       type: String,

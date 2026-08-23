@@ -10,6 +10,7 @@ import { initSocket } from './socket/index.js';
 import { startCronJobs, stopCronJobs } from './cron/index.js';
 import { isDemoMode } from './constants/demo.js';
 import { seedDemoIfEmpty } from './demo/seedDemoData.js';
+import { ensureDefaultUnits } from './services/defaultUnits.js';
 
 const PORT = process.env.PORT || 3040;
 
@@ -22,6 +23,13 @@ if (isDemoMode()) {
     await seedDemoIfEmpty();
   } catch (err) {
     console.error('[demo] initial seed failed:', err.message);
+  }
+} else {
+  // Demo reseeds its own units; live installs get the defaults ensured.
+  try {
+    await ensureDefaultUnits();
+  } catch (err) {
+    console.error('[warehouse] default units seed failed:', err.message);
   }
 }
 await startCronJobs();

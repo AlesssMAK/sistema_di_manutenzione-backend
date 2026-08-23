@@ -6,13 +6,23 @@ import { isDemoMode } from '../constants/demo.js';
 import { logFromRequest } from '../services/auditLog.js';
 
 export const createItem = async (req, res) => {
-  const { code, name, category, unitId, note, status } = req.body;
+  const { code, name, category, unitId, packageLabel, unitsPerPackage, note, status } =
+    req.body;
 
   if (isDemoMode()) {
     return res.status(201).json({
       success: true,
       message: 'Item created successfully',
-      data: { _id: 'demo', code, name, category, unitId, note },
+      data: {
+        _id: 'demo',
+        code,
+        name,
+        category,
+        unitId,
+        packageLabel,
+        unitsPerPackage,
+        note,
+      },
     });
   }
 
@@ -31,6 +41,8 @@ export const createItem = async (req, res) => {
     name,
     category,
     unitId,
+    packageLabel,
+    unitsPerPackage,
     note,
     status,
   });
@@ -55,7 +67,7 @@ export const getItemByCode = async (req, res) => {
   const { code } = req.params;
   const item = await InventoryItem.findOne({ code }).populate(
     'unitId',
-    'code name',
+    'code name allowsDecimals',
   );
   if (!item) throw createHttpError(404, 'Item not found');
 
@@ -88,7 +100,7 @@ export const getAllItems = async (req, res) => {
       .sort({ name: 1 })
       .skip(skip)
       .limit(perPage)
-      .populate('unitId', 'code name'),
+      .populate('unitId', 'code name allowsDecimals'),
   ]);
 
   const totalPages = Math.ceil(totalItems / perPage);
@@ -133,7 +145,7 @@ export const updateItem = async (req, res) => {
 
   const updated = await InventoryItem.findByIdAndUpdate(itemId, req.body, {
     new: true,
-  }).populate('unitId', 'code name');
+  }).populate('unitId', 'code name allowsDecimals');
 
   await logFromRequest(req, {
     action: 'inventoryItem.update',
