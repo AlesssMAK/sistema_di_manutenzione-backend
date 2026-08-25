@@ -9,7 +9,7 @@ const inventoryItemSchema = new Schema(
   {
     code: { type: String, required: true },
     name: { type: String, required: true },
-    category: { type: String },
+    categoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
     unitId: { type: Schema.Types.ObjectId, ref: 'Unit', required: true },
     // Optional package intake: items delivered in boxes/rolls/canisters
     // store how many usage-units one package holds. `unitsPerPackage`

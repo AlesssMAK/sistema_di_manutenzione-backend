@@ -27,6 +27,7 @@ export const updateProfile = async (req, res) => {
     'avatar',
     'status',
     'permissions',
+    'allowedWarehouses',
   ];
 
   const updates = {};

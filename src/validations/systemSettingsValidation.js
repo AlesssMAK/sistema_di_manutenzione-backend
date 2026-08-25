@@ -87,15 +87,8 @@ const warehouseSchema = Joi.object({
   enabled: Joi.boolean(),
   lowStock: Joi.object({
     notify: Joi.boolean(),
-    roles: Joi.array().items(
-      Joi.string().valid(
-        'operator',
-        'admin',
-        'manager',
-        'maintenanceWorker',
-        'safety',
-      ),
-    ),
+    // Specific users to alert (24-char ObjectId hex strings).
+    userIds: Joi.array().items(Joi.string().hex().length(24)),
   }),
   labels: Joi.object({
     qr: Joi.boolean(),

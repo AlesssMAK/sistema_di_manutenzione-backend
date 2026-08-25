@@ -17,6 +17,20 @@ const ensureWarehouse = async (warehouseId) => {
   return warehouse;
 };
 
+// Per-user warehouse access: empty allowedWarehouses = all (no limit);
+// a non-empty list restricts stock moves to those warehouses. Admins
+// are never restricted. `canOperateWarehouse` (checked by the route)
+// stays the general gate; this only narrows WHICH warehouses.
+const assertWarehouseAllowed = (user, warehouseId) => {
+  if (!user || user.role === 'admin') return;
+  const allowed = user.allowedWarehouses;
+  if (!allowed || allowed.length === 0) return;
+  const ok = allowed.some((w) => String(w) === String(warehouseId));
+  if (!ok) {
+    throw createHttpError(403, 'Not allowed to use this warehouse');
+  }
+};
+
 const loadItems = async (lines) => {
   const ids = [...new Set(lines.map((l) => String(l.itemId)))];
   const items = await InventoryItem.find({ _id: { $in: ids } });
@@ -32,6 +46,7 @@ export const getStock = async (req, res) => {
   const {
     warehouseId,
     itemId,
+    categoryId,
     search,
     lowOnly = false,
     page = 1,
@@ -43,13 +58,18 @@ export const getStock = async (req, res) => {
   if (warehouseId) filter.warehouseId = warehouseId;
   if (itemId) filter.itemId = itemId;
 
-  if (search) {
-    const matched = await InventoryItem.find({
-      $or: [
+  // Narrow by item attributes (category and/or text) → resolve to the
+  // matching item ids. Skipped when a specific itemId is already given.
+  if (!itemId && (categoryId || search)) {
+    const itemFilter = {};
+    if (categoryId) itemFilter.categoryId = categoryId;
+    if (search) {
+      itemFilter.$or = [
         { name: { $regex: search, $options: 'i' } },
         { code: { $regex: search, $options: 'i' } },
-      ],
-    }).select('_id');
+      ];
+    }
+    const matched = await InventoryItem.find(itemFilter).select('_id');
     filter.itemId = { $in: matched.map((m) => m._id) };
   }
 
@@ -66,8 +86,12 @@ export const getStock = async (req, res) => {
       .limit(perPage)
       .populate({
         path: 'itemId',
-        select: 'code name category unitId packageLabel unitsPerPackage status',
-        populate: { path: 'unitId', select: 'code name allowsDecimals' },
+        select:
+          'code name categoryId unitId packageLabel unitsPerPackage status',
+        populate: [
+          { path: 'unitId', select: 'code name allowsDecimals' },
+          { path: 'categoryId', select: 'name' },
+        ],
       })
       .populate('warehouseId', 'code name'),
   ]);
@@ -95,6 +119,7 @@ export const getStock = async (req, res) => {
 // adding to the (item x warehouse) on-hand level.
 export const stockIn = async (req, res) => {
   const { warehouseId, lines, note } = req.body;
+  assertWarehouseAllowed(req.user, warehouseId);
   await ensureWarehouse(warehouseId);
   const itemsById = await loadItems(lines);
 
@@ -147,6 +172,7 @@ export const stockIn = async (req, res) => {
 // come back as warnings.
 export const stockOut = async (req, res) => {
   const { warehouseId, lines, reference, note } = req.body;
+  assertWarehouseAllowed(req.user, warehouseId);
   const warehouse = await ensureWarehouse(warehouseId);
   const itemsById = await loadItems(lines);
 
@@ -212,6 +238,7 @@ export const stockOut = async (req, res) => {
 // value. The movement stores the counted absolute quantity.
 export const stockAdjust = async (req, res) => {
   const { warehouseId, itemId, quantity, note } = req.body;
+  assertWarehouseAllowed(req.user, warehouseId);
   const warehouse = await ensureWarehouse(warehouseId);
 
   const item = await InventoryItem.findById(itemId);
@@ -279,6 +306,8 @@ export const stockAdjust = async (req, res) => {
 // warnings.
 export const stockTransfer = async (req, res) => {
   const { fromWarehouseId, toWarehouseId, lines, note } = req.body;
+  assertWarehouseAllowed(req.user, fromWarehouseId);
+  assertWarehouseAllowed(req.user, toWarehouseId);
   if (String(fromWarehouseId) === String(toWarehouseId)) {
     throw createHttpError(400, 'Source and destination must differ');
   }

@@ -11,6 +11,10 @@ import {
   updateUnitSchema,
   unitIdSchema,
   listUnitsSchema,
+  createCategorySchema,
+  updateCategorySchema,
+  categoryIdSchema,
+  listCategoriesSchema,
   createWarehouseSchema,
   updateWarehouseSchema,
   warehouseIdSchema,
@@ -33,6 +37,12 @@ import {
   updateUnit,
   deactivateUnit,
 } from '../controllers/unitController.js';
+import {
+  createCategory,
+  getAllCategories,
+  updateCategory,
+  deactivateCategory,
+} from '../controllers/categoryController.js';
 import {
   createWarehouse,
   getAllWarehouses,
@@ -100,6 +110,40 @@ router.delete(
   canManage,
   celebrate(unitIdSchema),
   ctrlWrapper(deactivateUnit),
+);
+
+/* ---------------------------- Categories ------------------------- */
+router.get(
+  '/warehouse/categories',
+  authenticate,
+  requireWarehouseEnabled,
+  canRead,
+  celebrate(listCategoriesSchema),
+  ctrlWrapper(getAllCategories),
+);
+router.post(
+  '/warehouse/categories',
+  authenticate,
+  requireWarehouseEnabled,
+  canManage,
+  celebrate(createCategorySchema),
+  ctrlWrapper(createCategory),
+);
+router.put(
+  '/warehouse/categories/:categoryId',
+  authenticate,
+  requireWarehouseEnabled,
+  canManage,
+  celebrate(updateCategorySchema),
+  ctrlWrapper(updateCategory),
+);
+router.delete(
+  '/warehouse/categories/:categoryId',
+  authenticate,
+  requireWarehouseEnabled,
+  canManage,
+  celebrate(categoryIdSchema),
+  ctrlWrapper(deactivateCategory),
 );
 
 /* --------------------------- Warehouses -------------------------- */

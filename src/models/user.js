@@ -71,6 +71,11 @@ const userSchema = new Schema(
       canManageWarehouse: { type: Boolean, default: false },
       canOperateWarehouse: { type: Boolean, default: false },
     },
+    // Which warehouses this user may operate on. Empty = ALL (no
+    // restriction); a non-empty list limits stock moves to those
+    // warehouses. `canOperateWarehouse` stays the general on/off; this
+    // only narrows WHICH warehouses. Admins are never restricted.
+    allowedWarehouses: [{ type: Schema.Types.ObjectId, ref: 'Warehouse' }],
     // Per-tab "last seen" timestamps for the maintenance-worker board.
     // Drive the unseen-count badges: a fault counts as new when its
     // relevant timestamp is later than the tab's lastSeen.

@@ -19,6 +19,7 @@ import { Session } from '../models/session.js';
 import { Unit } from '../models/unit.js';
 import { Warehouse } from '../models/warehouse.js';
 import { InventoryItem } from '../models/inventoryItem.js';
+import { Category } from '../models/category.js';
 import { StockLevel } from '../models/stockLevel.js';
 import { StockMovement } from '../models/stockMovement.js';
 import { STATUS_FAULT } from '../constants/statusFault.js';
@@ -58,6 +59,7 @@ export const resetAndSeedDemo = async () => {
     Message.deleteMany({}),
     Session.deleteMany({}),
     Unit.deleteMany({}),
+    Category.deleteMany({}),
     Warehouse.deleteMany({}),
     InventoryItem.deleteMany({}),
     StockLevel.deleteMany({}),
@@ -301,17 +303,27 @@ export const resetAndSeedDemo = async () => {
     { code: 'MAG-02', name: 'Magazzino Linea A', location: 'Capannone A - Linea 1' },
   ]);
 
+  const [cLub, cTras, cCus, cEle, cDpi, cIdr, cMin] = await Category.create([
+    { name: 'Lubrificanti' },
+    { name: 'Trasmissione' },
+    { name: 'Cuscinetti' },
+    { name: 'Elettronica' },
+    { name: 'DPI' },
+    { name: 'Idraulica' },
+    { name: 'Minuteria' },
+  ]);
+
   // One item carries a 13-digit EAN-like code to demo barcode scanning.
   const items = await InventoryItem.create([
-    { code: 'OIL-HYD-46', name: 'Olio idraulico ISO 46', category: 'Lubrificanti', unitId: uL._id },
-    { code: 'BELT-A42', name: 'Cinghia trapezoidale A42', category: 'Trasmissione', unitId: uPz._id },
-    { code: 'BEARING-6204', name: 'Cuscinetto 6204 2RS', category: 'Cuscinetti', unitId: uPz._id },
-    { code: 'SENS-IND-M12', name: 'Sensore induttivo M12', category: 'Elettronica', unitId: uPz._id },
-    { code: '8001234567890', name: 'Guanti antitaglio (paio)', category: 'DPI', unitId: uPz._id },
-    { code: 'HOSE-PN10-19', name: 'Tubo idraulico PN10 19mm', category: 'Idraulica', unitId: uM._id },
+    { code: 'OIL-HYD-46', name: 'Olio idraulico ISO 46', categoryId: cLub._id, unitId: uL._id },
+    { code: 'BELT-A42', name: 'Cinghia trapezoidale A42', categoryId: cTras._id, unitId: uPz._id },
+    { code: 'BEARING-6204', name: 'Cuscinetto 6204 2RS', categoryId: cCus._id, unitId: uPz._id },
+    { code: 'SENS-IND-M12', name: 'Sensore induttivo M12', categoryId: cEle._id, unitId: uPz._id },
+    { code: '8001234567890', name: 'Guanti antitaglio (paio)', categoryId: cDpi._id, unitId: uPz._id },
+    { code: 'HOSE-PN10-19', name: 'Tubo idraulico PN10 19mm', categoryId: cIdr._id, unitId: uM._id },
     // Delivered in boxes of 100 but consumed by the piece — demoes the
     // package-intake flow (Carico in "Scatole", Scarico in "Pezzi").
-    { code: 'VITE-4X40', name: 'Viti autofilettanti 4x40', category: 'Minuteria', unitId: uPz._id, packageLabel: 'Scatola', unitsPerPackage: 100 },
+    { code: 'VITE-4X40', name: 'Viti autofilettanti 4x40', categoryId: cMin._id, unitId: uPz._id, packageLabel: 'Scatola', unitsPerPackage: 100 },
   ]);
 
   // On-hand per (item x warehouse); a few sit at/below minLevel to demo
