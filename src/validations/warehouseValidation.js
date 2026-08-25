@@ -84,7 +84,7 @@ export const createItemSchema = {
   [Segments.BODY]: Joi.object({
     code: Joi.string().trim().required(),
     name: Joi.string().trim().required(),
-    category: Joi.string().trim().allow('', null),
+    categoryId: objectId().allow(null),
     unitId: objectId().required(),
     packageLabel: Joi.string().trim().allow('', null),
     unitsPerPackage: Joi.number().positive().allow(null),
@@ -100,7 +100,7 @@ export const updateItemSchema = {
   [Segments.BODY]: Joi.object({
     code: Joi.string().trim().optional(),
     name: Joi.string().trim().optional(),
-    category: Joi.string().trim().allow('', null),
+    categoryId: objectId().allow(null),
     unitId: objectId().optional(),
     packageLabel: Joi.string().trim().allow('', null),
     unitsPerPackage: Joi.number().positive().allow(null),
@@ -119,9 +119,44 @@ export const itemByCodeSchema = {
   [Segments.PARAMS]: Joi.object({ code: Joi.string().trim().required() }),
 };
 
-export const listItemsSchema = listQuery;
+export const listItemsSchema = {
+  [Segments.QUERY]: Joi.object({
+    search: Joi.string().trim().allow('', null),
+    status: Joi.string().valid(...Object.values(STATUS)),
+    categoryId: objectId().optional(),
+    page: Joi.number().integer().min(1).default(1),
+    perPage: Joi.number().integer().min(1).max(200).default(10),
+  }),
+};
 export const listUnitsSchema = listQuery;
 export const listWarehousesSchema = listQuery;
+
+/* ------------------------- Categories ---------------------------- */
+
+export const createCategorySchema = {
+  [Segments.BODY]: Joi.object({
+    name: Joi.string().trim().required(),
+    status: Joi.string()
+      .valid(...Object.values(STATUS))
+      .default(STATUS.ACTIVE),
+  }),
+};
+
+export const updateCategorySchema = {
+  [Segments.PARAMS]: Joi.object({ categoryId: objectId().required() }),
+  [Segments.BODY]: Joi.object({
+    name: Joi.string().trim().optional(),
+    status: Joi.string()
+      .valid(...Object.values(STATUS))
+      .optional(),
+  }),
+};
+
+export const categoryIdSchema = {
+  [Segments.PARAMS]: Joi.object({ categoryId: objectId().required() }),
+};
+
+export const listCategoriesSchema = listQuery;
 
 /* ------------------------ Stock & movements ---------------------- */
 
@@ -129,6 +164,7 @@ export const stockQuerySchema = {
   [Segments.QUERY]: Joi.object({
     warehouseId: objectId().optional(),
     itemId: objectId().optional(),
+    categoryId: objectId().optional(),
     search: Joi.string().trim().allow('', null),
     lowOnly: Joi.boolean().default(false),
     page: Joi.number().integer().min(1).default(1),

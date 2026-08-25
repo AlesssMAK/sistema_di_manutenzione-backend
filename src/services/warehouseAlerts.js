@@ -1,7 +1,7 @@
 import { getSettings } from './systemSettings.js';
-import { sendPushToRole } from './push/index.js';
+import { sendPushToUsers } from './push/index.js';
 
-// Notify the admin-configured roles when items drop to/below their
+// Notify the admin-configured users when items drop to/below their
 // reorder point (or go negative). Fire-and-forget — the caller never
 // waits on it, so a failed/absent push never blocks a stock movement.
 export const notifyLowStock = async (lowItems, warehouse) => {
@@ -9,7 +9,7 @@ export const notifyLowStock = async (lowItems, warehouse) => {
     if (!lowItems?.length) return;
     const settings = await getSettings();
     const cfg = settings?.warehouse?.lowStock;
-    if (!cfg?.notify || !cfg.roles?.length) return;
+    if (!cfg?.notify || !cfg.userIds?.length) return;
 
     const shown = lowItems
       .slice(0, 5)
@@ -24,9 +24,7 @@ export const notifyLowStock = async (lowItems, warehouse) => {
       tag: 'warehouse-low-stock',
     };
 
-    await Promise.allSettled(
-      cfg.roles.map((role) => sendPushToRole(role, payload)),
-    );
+    await sendPushToUsers(cfg.userIds, payload);
   } catch (err) {
     console.error('[warehouseAlerts] low-stock notify failed', err.message);
   }

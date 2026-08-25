@@ -119,11 +119,15 @@ const systemSettingsSchema = new Schema(
     warehouse: {
       enabled: { type: Boolean, default: false },
       // Low-stock push alert: when a movement drops an item to/below its
-      // reorder point (or negative), notify the listed roles. Off by
-      // default; roles is a subset of the user role enum.
+      // reorder point (or negative), notify specific users. Off by
+      // default; userIds is an admin-picked list (not roles).
       lowStock: {
         notify: { type: Boolean, default: false },
-        roles: { type: [String], default: [] },
+        userIds: {
+          type: [Schema.Types.ObjectId],
+          ref: 'User',
+          default: [],
+        },
       },
       // Which printable label formats are available to technicians. When
       // more than one is enabled the technician picks per print (choice

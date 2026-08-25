@@ -6,8 +6,16 @@ import { isDemoMode } from '../constants/demo.js';
 import { logFromRequest } from '../services/auditLog.js';
 
 export const createItem = async (req, res) => {
-  const { code, name, category, unitId, packageLabel, unitsPerPackage, note, status } =
-    req.body;
+  const {
+    code,
+    name,
+    categoryId,
+    unitId,
+    packageLabel,
+    unitsPerPackage,
+    note,
+    status,
+  } = req.body;
 
   if (isDemoMode()) {
     return res.status(201).json({
@@ -17,7 +25,7 @@ export const createItem = async (req, res) => {
         _id: 'demo',
         code,
         name,
-        category,
+        categoryId,
         unitId,
         packageLabel,
         unitsPerPackage,
@@ -39,7 +47,7 @@ export const createItem = async (req, res) => {
   const item = await InventoryItem.create({
     code,
     name,
-    category,
+    categoryId,
     unitId,
     packageLabel,
     unitsPerPackage,
@@ -65,10 +73,9 @@ export const createItem = async (req, res) => {
 // the camera scanner in the stock movement flows.
 export const getItemByCode = async (req, res) => {
   const { code } = req.params;
-  const item = await InventoryItem.findOne({ code }).populate(
-    'unitId',
-    'code name allowsDecimals',
-  );
+  const item = await InventoryItem.findOne({ code })
+    .populate('unitId', 'code name allowsDecimals')
+    .populate('categoryId', 'name');
   if (!item) throw createHttpError(404, 'Item not found');
 
   res.status(200).json({
@@ -79,17 +86,17 @@ export const getItemByCode = async (req, res) => {
 };
 
 export const getAllItems = async (req, res) => {
-  const { search, status, page = 1, perPage = 10 } = req.query;
+  const { search, status, categoryId, page = 1, perPage = 10 } = req.query;
   const skip = (page - 1) * perPage;
 
   const query = InventoryItem.find();
   if (status) query.where('status').equals(status);
+  if (categoryId) query.where('categoryId').equals(categoryId);
   if (search) {
     query.where({
       $or: [
         { name: { $regex: search, $options: 'i' } },
         { code: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
       ],
     });
   }
@@ -100,7 +107,8 @@ export const getAllItems = async (req, res) => {
       .sort({ name: 1 })
       .skip(skip)
       .limit(perPage)
-      .populate('unitId', 'code name allowsDecimals'),
+      .populate('unitId', 'code name allowsDecimals')
+      .populate('categoryId', 'name'),
   ]);
 
   const totalPages = Math.ceil(totalItems / perPage);
@@ -145,7 +153,9 @@ export const updateItem = async (req, res) => {
 
   const updated = await InventoryItem.findByIdAndUpdate(itemId, req.body, {
     new: true,
-  }).populate('unitId', 'code name allowsDecimals');
+  })
+    .populate('unitId', 'code name allowsDecimals')
+    .populate('categoryId', 'name');
 
   await logFromRequest(req, {
     action: 'inventoryItem.update',

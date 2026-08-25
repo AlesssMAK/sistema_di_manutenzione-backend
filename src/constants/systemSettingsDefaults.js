@@ -52,7 +52,7 @@ export const systemSettingsDefaults = {
     enabled: false,
     lowStock: {
       notify: false,
-      roles: [],
+      userIds: [],
     },
     labels: {
       qr: true,
