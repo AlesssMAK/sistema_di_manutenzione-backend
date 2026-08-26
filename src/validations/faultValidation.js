@@ -126,6 +126,7 @@ export const getAllFaultSchema = {
       'priority',
       'deadline',
       'plannedDate',
+      'completedAt',
     ),
     sortOrder: Joi.string().valid('asc', 'desc').default('asc'),
   }),
