@@ -241,6 +241,13 @@ export const getAllFault = async (req, res) => {
   }
 
   const sortOption = sort === 'asc' ? 1 : -1;
+  // An explicit field sort (e.g. completedAt for the completed history)
+  // wins; otherwise order by creation time via `sort`. `sortBy` defaults
+  // to 'dataCreated', which keeps the legacy creation-order behaviour.
+  const sortSpec =
+    sortBy && sortBy !== 'dataCreated'
+      ? { [sortBy]: sortOrder === 'asc' ? 1 : -1 }
+      : { createdAt: sortOption };
   const skip = (page - 1) * perPage;
 
   const [totalFault, fault] = await Promise.all([
@@ -249,10 +256,9 @@ export const getAllFault = async (req, res) => {
       .populate({ path: 'plantId', select: 'namePlant code' })
       .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
       .populate({ path: 'assignedMaintainers', select: 'fullName email' })
-      .sort({ createdAt: sortOption })
+      .sort(sortSpec)
       .skip(skip)
       .limit(perPage)
-      .sort({ [sortBy]: sortOrder })
       .lean(),
   ]);
 
