@@ -8,6 +8,13 @@ import { MOVEMENT_TYPE, REFERENCE_TYPE } from '../constants/warehouse.js';
 import { STATUS } from '../constants/status.js';
 import { logFromRequest } from '../services/auditLog.js';
 import { isLowForAlert, notifyLowStock } from '../services/warehouseAlerts.js';
+import { getSettings } from '../services/systemSettings.js';
+import {
+  getManagementCandidates,
+  getMaintenanceCandidates,
+  resolveEffectiveWarehouse,
+  setMinLevel,
+} from '../services/warehouseContext.js';
 
 const ensureWarehouse = async (warehouseId) => {
   const warehouse = await Warehouse.findById(warehouseId);
@@ -17,18 +24,36 @@ const ensureWarehouse = async (warehouseId) => {
   return warehouse;
 };
 
-// Per-user warehouse access: empty allowedWarehouses = all (no limit);
-// a non-empty list restricts stock moves to those warehouses. Admins
-// are never restricted. `canOperateWarehouse` (checked by the route)
-// stays the general gate; this only narrows WHICH warehouses.
-const assertWarehouseAllowed = (user, warehouseId) => {
-  if (!user || user.role === 'admin') return;
-  const allowed = user.allowedWarehouses;
-  if (!allowed || allowed.length === 0) return;
-  const ok = allowed.some((w) => String(w) === String(warehouseId));
-  if (!ok) {
-    throw createHttpError(403, 'Not allowed to use this warehouse');
+// Resolve the warehouse for a movement, from the candidate set of a
+// context. `context` is 'maintenance' (the fault set: single mode → the
+// default warehouse, multi mode → the user's role fault warehouses) or
+// 'management' (the keeper set: single mode → the default warehouse,
+// multi mode → active warehouses narrowed by allowedWarehouses; admins
+// unrestricted). A provided id must belong to that set (403 otherwise —
+// this also enforces per-user/role access). When omitted, the effective
+// warehouse is used if unambiguous (single candidate); otherwise the
+// caller must pick one (400).
+const resolveMovementWarehouseId = async (user, provided, context) => {
+  const candidates =
+    context === 'maintenance'
+      ? await getMaintenanceCandidates(user)
+      : await getManagementCandidates(user);
+  if (provided) {
+    const ok = candidates.some((w) => String(w._id) === String(provided));
+    if (!ok) {
+      throw createHttpError(403, 'Warehouse not available in this context');
+    }
+    return String(provided);
   }
+  const settings = await getSettings();
+  const effective = resolveEffectiveWarehouse(
+    candidates,
+    settings?.warehouse?.defaultWarehouseId,
+  );
+  if (!effective) {
+    throw createHttpError(400, 'A warehouse must be selected');
+  }
+  return String(effective._id);
 };
 
 const loadItems = async (lines) => {
@@ -118,8 +143,12 @@ export const getStock = async (req, res) => {
 // Receive goods: one movement per line, all sharing a batchId, each
 // adding to the (item x warehouse) on-hand level.
 export const stockIn = async (req, res) => {
-  const { warehouseId, lines, note } = req.body;
-  assertWarehouseAllowed(req.user, warehouseId);
+  const { lines, note } = req.body;
+  const warehouseId = await resolveMovementWarehouseId(
+    req.user,
+    req.body.warehouseId,
+    'management',
+  );
   await ensureWarehouse(warehouseId);
   const itemsById = await loadItems(lines);
 
@@ -171,12 +200,19 @@ export const stockIn = async (req, res) => {
 // is allowed; affected lines that drop to/below minLevel (or negative)
 // come back as warnings.
 export const stockOut = async (req, res) => {
-  const { warehouseId, lines, reference, note } = req.body;
-  assertWarehouseAllowed(req.user, warehouseId);
+  const { lines, reference, note } = req.body;
+  const ref = reference ?? { type: REFERENCE_TYPE.NONE };
+  // A fault write-off draws from the maintenance set; any other issue
+  // (task/none) is a keeper operation over the management set.
+  const context =
+    ref.type === REFERENCE_TYPE.FAULT ? 'maintenance' : 'management';
+  const warehouseId = await resolveMovementWarehouseId(
+    req.user,
+    req.body.warehouseId,
+    context,
+  );
   const warehouse = await ensureWarehouse(warehouseId);
   const itemsById = await loadItems(lines);
-
-  const ref = reference ?? { type: REFERENCE_TYPE.NONE };
   const batchId = new mongoose.Types.ObjectId();
   const results = [];
   const warnings = [];
@@ -237,8 +273,12 @@ export const stockOut = async (req, res) => {
 // Inventory correction: sets the (item x warehouse) level to a counted
 // value. The movement stores the counted absolute quantity.
 export const stockAdjust = async (req, res) => {
-  const { warehouseId, itemId, quantity, note } = req.body;
-  assertWarehouseAllowed(req.user, warehouseId);
+  const { itemId, quantity, note } = req.body;
+  const warehouseId = await resolveMovementWarehouseId(
+    req.user,
+    req.body.warehouseId,
+    'management',
+  );
   const warehouse = await ensureWarehouse(warehouseId);
 
   const item = await InventoryItem.findById(itemId);
@@ -305,9 +345,17 @@ export const stockAdjust = async (req, res) => {
 // at the source is allowed; low/negative source lines come back as
 // warnings.
 export const stockTransfer = async (req, res) => {
-  const { fromWarehouseId, toWarehouseId, lines, note } = req.body;
-  assertWarehouseAllowed(req.user, fromWarehouseId);
-  assertWarehouseAllowed(req.user, toWarehouseId);
+  const { lines, note } = req.body;
+  const fromWarehouseId = await resolveMovementWarehouseId(
+    req.user,
+    req.body.fromWarehouseId,
+    'management',
+  );
+  const toWarehouseId = await resolveMovementWarehouseId(
+    req.user,
+    req.body.toWarehouseId,
+    'management',
+  );
   if (String(fromWarehouseId) === String(toWarehouseId)) {
     throw createHttpError(400, 'Source and destination must differ');
   }
@@ -392,6 +440,45 @@ export const stockTransfer = async (req, res) => {
     success: true,
     message: 'Stock transferred successfully',
     data: { batchId, results, warnings },
+  });
+};
+
+// Set the reorder point (minLevel) for an (item x warehouse) pair. Used
+// by the Giacenze inline editor and, in the single-warehouse case, from
+// the item form. warehouseId is optional: when omitted the effective
+// management warehouse is used. Creates the stock line at quantity 0 if
+// it does not exist yet, so a minimum can be set before any movement.
+export const stockSetMin = async (req, res) => {
+  const { itemId, minLevel } = req.body;
+  const warehouseId = await resolveMovementWarehouseId(
+    req.user,
+    req.body.warehouseId,
+    'management',
+  );
+  const item = await InventoryItem.findById(itemId);
+  if (!item) throw createHttpError(400, 'Item does not exist');
+  await ensureWarehouse(warehouseId);
+
+  const level = await setMinLevel(itemId, warehouseId, minLevel);
+
+  await logFromRequest(req, {
+    action: 'stock.setMin',
+    targetType: 'InventoryItem',
+    targetId: itemId,
+    summary: `Set minimum of ${item.name} to ${minLevel}`,
+    meta: { warehouseId, minLevel },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Minimum level updated',
+    data: {
+      itemId,
+      warehouseId,
+      minLevel: level.minLevel,
+      quantity: level.quantity,
+      low: level.quantity <= level.minLevel,
+    },
   });
 };
 

@@ -124,6 +124,27 @@ export const ensureSingleton = async () => {
       console.log('✅ SystemSettings backfilled warehouse.labels');
     }
 
+    // Backfill the multi-warehouse fields for documents created before
+    // they were added. Single-warehouse mode with no per-role fault
+    // warehouses keeps the current behaviour, so this is a safe default.
+    if (existing.warehouse && existing.warehouse.multiWarehouse === undefined) {
+      existing.warehouse.multiWarehouse =
+        systemSettingsDefaults.warehouse.multiWarehouse;
+      existing.warehouse.defaultWarehouseId =
+        systemSettingsDefaults.warehouse.defaultWarehouseId;
+      dirty = true;
+      console.log('✅ SystemSettings backfilled warehouse.multiWarehouse');
+    }
+
+    if (
+      existing.warehouse &&
+      existing.warehouse.faultWarehousesByRole === undefined
+    ) {
+      existing.warehouse.faultWarehousesByRole = [];
+      dirty = true;
+      console.log('✅ SystemSettings backfilled warehouse.faultWarehousesByRole');
+    }
+
     if (dirty) await existing.save();
     cached = existing.toObject();
     console.log('✅ SystemSettings loaded');

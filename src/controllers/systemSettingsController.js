@@ -12,6 +12,7 @@ import {
   redactMeta,
 } from '../services/auditLog.js';
 import { reloadCronJobs } from '../cron/index.js';
+import { ensureDefaultWarehouse } from '../services/warehouseContext.js';
 
 export const getPublicSettings = async (req, res) => {
   const settings = await getSettings();
@@ -47,6 +48,15 @@ export const updateSettings = async (req, res) => {
   if (req.body?.timezone !== undefined) {
     reloadCronJobs().catch((err) =>
       console.error('[cron] reload after settings update failed', err.message),
+    );
+  }
+
+  // Enabling the warehouse module with no warehouses yet would leave
+  // single-warehouse mode with nothing to resolve to; seed a default one
+  // so the module works out of the box.
+  if (req.body?.warehouse?.enabled === true) {
+    ensureDefaultWarehouse().catch((err) =>
+      console.error('[warehouse] ensureDefaultWarehouse failed', err.message),
     );
   }
 
