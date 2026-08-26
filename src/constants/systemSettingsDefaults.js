@@ -50,6 +50,9 @@ export const systemSettingsDefaults = {
 
   warehouse: {
     enabled: false,
+    multiWarehouse: false,
+    defaultWarehouseId: null,
+    faultWarehousesByRole: [],
     lowStock: {
       notify: false,
       userIds: [],

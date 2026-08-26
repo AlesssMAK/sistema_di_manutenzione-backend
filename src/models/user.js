@@ -1,5 +1,6 @@
 import { model, Schema } from 'mongoose';
 import { STATUS } from '../constants/status.js';
+import { USER_ROLES } from '../constants/roles.js';
 
 const userSchema = new Schema(
   {
@@ -8,7 +9,7 @@ const userSchema = new Schema(
       required: [true, 'Role is required'],
       trim: true,
       default: 'operator',
-      enum: ['operator', 'admin', 'manager', 'maintenanceWorker', 'safety'],
+      enum: USER_ROLES,
     },
     fullName: {
       type: String,

@@ -1,5 +1,6 @@
 import { model, Schema } from 'mongoose';
 import { DateTime } from 'luxon';
+import { USER_ROLES } from '../constants/roles.js';
 
 const HH_MM_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -118,6 +119,44 @@ const systemSettingsSchema = new Schema(
     // it's on).
     warehouse: {
       enabled: { type: Boolean, default: false },
+      // Multi-warehouse mode. Off by default: the shop runs on a single
+      // warehouse, so the warehouse picker is hidden everywhere and the
+      // one effective warehouse is used implicitly. Turning it on lets
+      // more than one warehouse exist and exposes the maintenance-
+      // warehouse config. Picker visibility is still driven by how many
+      // candidate warehouses a context has, not by this flag alone.
+      multiWarehouse: { type: Boolean, default: false },
+      // The single warehouse used when a context has no explicit choice.
+      // When null it is derived (the sole active warehouse). Acts as an
+      // explicit default when several warehouses exist but a context is
+      // still single (e.g. general stock moves).
+      defaultWarehouseId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Warehouse',
+        default: null,
+      },
+      // Which warehouses each ROLE may draw parts from when working on a
+      // fault (the maintenance context — separate from warehouse
+      // operations, which stay per-user). One entry per configured role;
+      // roles absent here fall back to the default warehouse. Having
+      // warehouse-keeper rights does NOT widen this — a keeper who is
+      // also a technician still only sees his role's fault warehouses.
+      // Only consulted in multi-warehouse mode; single mode always uses
+      // the one default warehouse.
+      faultWarehousesByRole: {
+        type: [
+          {
+            _id: false,
+            role: { type: String, enum: USER_ROLES, required: true },
+            warehouseIds: {
+              type: [Schema.Types.ObjectId],
+              ref: 'Warehouse',
+              default: [],
+            },
+          },
+        ],
+        default: [],
+      },
       // Low-stock push alert: when a movement drops an item to/below its
       // reorder point (or negative), notify specific users. Off by
       // default; userIds is an admin-picked list (not roles).

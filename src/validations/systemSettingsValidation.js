@@ -1,6 +1,9 @@
 import { Joi, Segments } from 'celebrate';
+import { USER_ROLES } from '../constants/roles.js';
 
 const hhmm = Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/);
+
+const objectIdHex = Joi.string().hex().length(24);
 
 const workHoursSchema = Joi.object({
   start: hhmm.required(),
@@ -85,10 +88,20 @@ const maintenanceSchema = Joi.object({
 
 const warehouseSchema = Joi.object({
   enabled: Joi.boolean(),
+  multiWarehouse: Joi.boolean(),
+  defaultWarehouseId: objectIdHex.allow(null),
+  faultWarehousesByRole: Joi.array().items(
+    Joi.object({
+      role: Joi.string()
+        .valid(...USER_ROLES)
+        .required(),
+      warehouseIds: Joi.array().items(objectIdHex),
+    })
+  ),
   lowStock: Joi.object({
     notify: Joi.boolean(),
     // Specific users to alert (24-char ObjectId hex strings).
-    userIds: Joi.array().items(Joi.string().hex().length(24)),
+    userIds: Joi.array().items(objectIdHex),
   }),
   labels: Joi.object({
     qr: Joi.boolean(),

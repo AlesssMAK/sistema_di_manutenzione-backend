@@ -4,6 +4,10 @@ import { Unit } from '../models/unit.js';
 import { STATUS } from '../constants/status.js';
 import { isDemoMode } from '../constants/demo.js';
 import { logFromRequest } from '../services/auditLog.js';
+import {
+  resolveManagementWarehouse,
+  setMinLevel,
+} from '../services/warehouseContext.js';
 
 export const createItem = async (req, res) => {
   const {
@@ -13,6 +17,7 @@ export const createItem = async (req, res) => {
     unitId,
     packageLabel,
     unitsPerPackage,
+    minLevel,
     note,
     status,
   } = req.body;
@@ -29,6 +34,7 @@ export const createItem = async (req, res) => {
         unitId,
         packageLabel,
         unitsPerPackage,
+        minLevel,
         note,
       },
     });
@@ -54,6 +60,14 @@ export const createItem = async (req, res) => {
     note,
     status,
   });
+
+  // Reorder point set from the item form: only meaningful in the single-
+  // warehouse case, where it materialises the stock line (quantity 0) of
+  // the effective warehouse. Ignored when the warehouse is ambiguous.
+  if (minLevel !== undefined && minLevel !== null) {
+    const warehouse = await resolveManagementWarehouse(req.user);
+    if (warehouse) await setMinLevel(item._id, warehouse._id, minLevel);
+  }
 
   await logFromRequest(req, {
     action: 'inventoryItem.create',
@@ -132,7 +146,10 @@ export const getAllItems = async (req, res) => {
 
 export const updateItem = async (req, res) => {
   const { itemId } = req.params;
-  const { code, unitId } = req.body;
+  // minLevel is not a field on the item; it lives on the (item x
+  // warehouse) stock line, so pull it out and apply it separately.
+  const { minLevel, ...itemFields } = req.body;
+  const { code, unitId } = itemFields;
 
   const item = await InventoryItem.findById(itemId);
   if (!item) throw createHttpError(404, 'Item not found');
@@ -151,11 +168,17 @@ export const updateItem = async (req, res) => {
     }
   }
 
-  const updated = await InventoryItem.findByIdAndUpdate(itemId, req.body, {
+  const updated = await InventoryItem.findByIdAndUpdate(itemId, itemFields, {
     new: true,
   })
     .populate('unitId', 'code name allowsDecimals')
     .populate('categoryId', 'name');
+
+  // Reorder point edited from the item form (single-warehouse case).
+  if (minLevel !== undefined && minLevel !== null) {
+    const warehouse = await resolveManagementWarehouse(req.user);
+    if (warehouse) await setMinLevel(itemId, warehouse._id, minLevel);
+  }
 
   await logFromRequest(req, {
     action: 'inventoryItem.update',

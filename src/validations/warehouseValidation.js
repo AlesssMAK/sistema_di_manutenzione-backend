@@ -88,6 +88,11 @@ export const createItemSchema = {
     unitId: objectId().required(),
     packageLabel: Joi.string().trim().allow('', null),
     unitsPerPackage: Joi.number().positive().allow(null),
+    // Optional reorder point set at creation. Only meaningful in a
+    // single-warehouse context: the server writes it to the effective
+    // warehouse's stock line (created at quantity 0). Ignored when the
+    // context is ambiguous (several warehouses).
+    minLevel: Joi.number().min(0).allow(null),
     note: Joi.string().trim().allow('', null),
     status: Joi.string()
       .valid(...Object.values(STATUS))
@@ -104,6 +109,8 @@ export const updateItemSchema = {
     unitId: objectId().optional(),
     packageLabel: Joi.string().trim().allow('', null),
     unitsPerPackage: Joi.number().positive().allow(null),
+    // Reorder point edited from the item form (single-warehouse case).
+    minLevel: Joi.number().min(0).allow(null),
     note: Joi.string().trim().allow('', null),
     status: Joi.string()
       .valid(...Object.values(STATUS))
@@ -188,7 +195,9 @@ const reference = Joi.object({
 
 export const stockInSchema = {
   [Segments.BODY]: Joi.object({
-    warehouseId: objectId().required(),
+    // Optional: omitted when a context has a single candidate warehouse
+    // (server fills the effective one). Required only when ambiguous.
+    warehouseId: objectId().optional(),
     lines: Joi.array().items(movementLine).min(1).required(),
     note: Joi.string().trim().allow('', null),
   }),
@@ -196,7 +205,7 @@ export const stockInSchema = {
 
 export const stockOutSchema = {
   [Segments.BODY]: Joi.object({
-    warehouseId: objectId().required(),
+    warehouseId: objectId().optional(),
     lines: Joi.array().items(movementLine).min(1).required(),
     reference: reference.default({ type: REFERENCE_TYPE.NONE }),
     note: Joi.string().trim().allow('', null),
@@ -214,11 +223,23 @@ export const stockTransferSchema = {
 
 export const stockAdjustSchema = {
   [Segments.BODY]: Joi.object({
-    warehouseId: objectId().required(),
+    warehouseId: objectId().optional(),
     itemId: objectId().required(),
     // Absolute counted quantity the level should become.
     quantity: Joi.number().min(0).required(),
     note: Joi.string().trim().allow('', null),
+  }),
+};
+
+// Set the reorder point for an (item x warehouse) pair. warehouseId is
+// optional: when a context has a single candidate warehouse the server
+// fills the effective one (the single-warehouse case where the minimum
+// is edited straight from the item form).
+export const stockMinSchema = {
+  [Segments.BODY]: Joi.object({
+    itemId: objectId().required(),
+    warehouseId: objectId().optional(),
+    minLevel: Joi.number().min(0).required(),
   }),
 };
 
