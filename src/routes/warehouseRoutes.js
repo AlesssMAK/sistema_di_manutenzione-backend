@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/authenticate.js';
 import {
   requireWarehouseEnabled,
   requireWarehousePermission,
+  requireWarehouseRead,
 } from '../middleware/warehousePermission.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
 import {
@@ -73,10 +74,9 @@ const router = Router();
 // warehouse can be handed to whoever needs it (incl. a future
 // warehouse-keeper). Anyone with either grant can read; catalog writes
 // need canManageWarehouse; stock moves need canOperateWarehouse.
-const canRead = requireWarehousePermission(
-  'canManageWarehouse',
-  'canOperateWarehouse',
-);
+// Reads are open to maintenance workers too (they need the catalog to
+// issue fault materials); writes stay behind the grants.
+const canRead = requireWarehouseRead;
 const canManage = requireWarehousePermission('canManageWarehouse');
 const canMove = requireWarehousePermission('canOperateWarehouse');
 
@@ -249,11 +249,15 @@ router.post(
   celebrate(stockInSchema),
   ctrlWrapper(stockIn),
 );
+// OUT is the one write open to maintenance workers, but only as a fault
+// write-off on their own fault — the controller enforces that. General
+// issues (task/none) still require canOperateWarehouse there. canRead is
+// the baseline gate (keeps plain operators out entirely).
 router.post(
   '/warehouse/movements/out',
   authenticate,
   requireWarehouseEnabled,
-  canMove,
+  canRead,
   celebrate(stockOutSchema),
   ctrlWrapper(stockOut),
 );

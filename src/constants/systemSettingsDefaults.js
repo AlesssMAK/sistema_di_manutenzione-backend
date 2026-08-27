@@ -19,6 +19,11 @@ export const systemSettingsDefaults = {
   slotDurationMinutes: 30,
   holidays: [],
 
+  workScheduleOverrides: {
+    roles: [],
+    users: [],
+  },
+
   email: {
     enabled: true,
     from: 'noreply@mms.local',

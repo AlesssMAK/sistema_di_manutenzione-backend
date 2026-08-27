@@ -16,6 +16,27 @@ export const requireWarehouseEnabled = async (req, res, next) => {
   next();
 };
 
+// Read access to the warehouse catalog/stock. Broader than management:
+// besides admins and the warehouse grants, maintenance workers may read
+// (items + warehouses) because issuing materials against their own fault
+// needs it. The write-off itself is gated separately (fault assignment +
+// the warehouse being in the role's fault set), not by this.
+export const requireWarehouseRead = (req, res, next) => {
+  if (!req.user) {
+    throw createHttpError(401, 'Authentication required');
+  }
+  const { role, permissions } = req.user;
+  if (
+    role === 'admin' ||
+    role === 'maintenanceWorker' ||
+    permissions?.canManageWarehouse === true ||
+    permissions?.canOperateWarehouse === true
+  ) {
+    return next();
+  }
+  throw createHttpError(403, 'Access denied');
+};
+
 // Gate a warehouse route by admin-granted per-user permission flags.
 // Admins always pass; any other user needs at least one of the listed
 // flags on User.permissions. Role-agnostic on purpose, so a future

@@ -19,6 +19,47 @@ const dayScheduleSchema = new Schema(
 
 const WEEK_DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
+const overrideWeekSchedule = () => ({
+  mon: dayScheduleSchema,
+  tue: dayScheduleSchema,
+  wed: dayScheduleSchema,
+  thu: dayScheduleSchema,
+  fri: dayScheduleSchema,
+  sat: dayScheduleSchema,
+  sun: dayScheduleSchema,
+});
+
+// A work-schedule override for a whole role or an individual user.
+// `perDay` selects which applies: false → the single workHours range on
+// every day; true → the per-day weekSchedule (same shape as the
+// factory's). Scheduling resolves the window with precedence
+// user → role → factory.
+const roleWorkScheduleSchema = new Schema(
+  {
+    role: { type: String, enum: USER_ROLES, required: true },
+    perDay: { type: Boolean, default: false },
+    workHours: {
+      start: { type: String, match: HH_MM_REGEX, default: '08:00' },
+      end: { type: String, match: HH_MM_REGEX, default: '17:00' },
+    },
+    weekSchedule: overrideWeekSchedule(),
+  },
+  { _id: false },
+);
+
+const userWorkScheduleSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    perDay: { type: Boolean, default: false },
+    workHours: {
+      start: { type: String, match: HH_MM_REGEX, default: '08:00' },
+      end: { type: String, match: HH_MM_REGEX, default: '17:00' },
+    },
+    weekSchedule: overrideWeekSchedule(),
+  },
+  { _id: false },
+);
+
 const systemSettingsSchema = new Schema(
   {
     _id: { type: String, default: 'global' },
@@ -65,6 +106,15 @@ const systemSettingsSchema = new Schema(
       fri: dayScheduleSchema,
       sat: dayScheduleSchema,
       sun: dayScheduleSchema,
+    },
+
+    // Per-role and per-user work-hour overrides. Empty = the role/user
+    // follows the factory schedule above. Used to constrain scheduling
+    // slots (e.g. a technician starting at 08:30) so planned times fall
+    // in real working windows.
+    workScheduleOverrides: {
+      roles: { type: [roleWorkScheduleSchema], default: [] },
+      users: { type: [userWorkScheduleSchema], default: [] },
     },
 
     slotDurationMinutes: {

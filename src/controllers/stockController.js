@@ -4,6 +4,7 @@ import { StockLevel } from '../models/stockLevel.js';
 import { StockMovement } from '../models/stockMovement.js';
 import { InventoryItem } from '../models/inventoryItem.js';
 import { Warehouse } from '../models/warehouse.js';
+import { Fault } from '../models/fault.js';
 import { MOVEMENT_TYPE, REFERENCE_TYPE } from '../constants/warehouse.js';
 import { STATUS } from '../constants/status.js';
 import { logFromRequest } from '../services/auditLog.js';
@@ -206,6 +207,28 @@ export const stockOut = async (req, res) => {
   // (task/none) is a keeper operation over the management set.
   const context =
     ref.type === REFERENCE_TYPE.FAULT ? 'maintenance' : 'management';
+
+  // Issuing stock is a warehouse-operate action — EXCEPT a fault
+  // write-off, which any technician assigned to that fault may do (the
+  // warehouse itself is still restricted to their fault set by
+  // resolveMovementWarehouseId below). This is the "materials are part
+  // of the maintenance job" split from warehouse management.
+  const perms = req.user.permissions ?? {};
+  const canOperate =
+    req.user.role === 'admin' || perms.canOperateWarehouse === true;
+  if (!canOperate) {
+    const isFaultWriteOff = ref.type === REFERENCE_TYPE.FAULT && ref.faultId;
+    const assigned =
+      isFaultWriteOff &&
+      (await Fault.exists({
+        _id: ref.faultId,
+        assignedMaintainers: req.user._id,
+      }));
+    if (!assigned) {
+      throw createHttpError(403, 'Not allowed to issue stock');
+    }
+  }
+
   const warehouseId = await resolveMovementWarehouseId(
     req.user,
     req.body.warehouseId,
