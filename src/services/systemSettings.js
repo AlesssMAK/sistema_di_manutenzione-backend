@@ -15,6 +15,7 @@ const PUBLIC_FIELDS = [
   'weekSchedule',
   'slotDurationMinutes',
   'holidays',
+  'workScheduleOverrides',
   'bacheca',
   'maintenance',
   'warehouse',
@@ -86,6 +87,14 @@ export const ensureSingleton = async () => {
       existing.weekSchedule = built;
       dirty = true;
       console.log('✅ SystemSettings backfilled weekSchedule');
+    }
+
+    // Backfill the per-role/per-user work-hour overrides (empty = follow
+    // the factory schedule) for documents created before they existed.
+    if (existing.workScheduleOverrides === undefined) {
+      existing.workScheduleOverrides = { roles: [], users: [] };
+      dirty = true;
+      console.log('✅ SystemSettings backfilled workScheduleOverrides');
     }
 
     // Backfill the maintenance group for documents created before it

@@ -48,6 +48,28 @@ const weekScheduleSchema = Joi.object({
   sun: dayScheduleSchema.required(),
 });
 
+// Per-role / per-user work-hour override. workHours (simple mode) and
+// weekSchedule (per-day mode) are both optional — the client sends what
+// the entry uses; resolution falls back through role → factory.
+const roleScheduleSchema = Joi.object({
+  role: Joi.string()
+    .valid(...USER_ROLES)
+    .required(),
+  perDay: Joi.boolean(),
+  workHours: workHoursSchema,
+  weekSchedule: weekScheduleSchema,
+});
+const userScheduleSchema = Joi.object({
+  userId: objectIdHex.required(),
+  perDay: Joi.boolean(),
+  workHours: workHoursSchema,
+  weekSchedule: weekScheduleSchema,
+});
+const workScheduleOverridesSchema = Joi.object({
+  roles: Joi.array().items(roleScheduleSchema),
+  users: Joi.array().items(userScheduleSchema),
+});
+
 const emailSchema = Joi.object({
   enabled: Joi.boolean(),
   from: Joi.string().trim().email({ tlds: { allow: false } }),
@@ -121,6 +143,7 @@ export const updateSystemSettingsSchema = {
     weekSchedule: weekScheduleSchema,
     slotDurationMinutes: Joi.number().integer().min(5).max(240),
     holidays: Joi.array().items(Joi.date().iso()),
+    workScheduleOverrides: workScheduleOverridesSchema,
     email: emailSchema,
     messaging: messagingSchema,
     retention: retentionSchema,
