@@ -209,6 +209,10 @@ export const stockOutSchema = {
     lines: Joi.array().items(movementLine).min(1).required(),
     reference: reference.default({ type: REFERENCE_TYPE.NONE }),
     note: Joi.string().trim().allow('', null),
+    // Opt-in: reject (409) instead of allowing an issue that would drive a
+    // line negative. Used by the fault-completion material write-off so a
+    // fault can't be closed against stock that isn't there.
+    strict: Joi.boolean().optional(),
   }),
 };
 

@@ -109,6 +109,16 @@ const faultSchema = new Schema(
       type: String,
       trim: true,
     },
+    // Log of every suspension the fault has gone through — a fault can be
+    // paused more than once, and each pause records its date + reason. The
+    // material note captured at the same moment goes to `materialRequest`
+    // (the shared material list), not here.
+    suspensions: [
+      {
+        suspendedAt: { type: Date, required: true },
+        reason: { type: String, trim: true, default: '' },
+      },
+    ],
     materialRequest: {
       type: String,
       trim: true,

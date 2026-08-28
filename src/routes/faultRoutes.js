@@ -6,6 +6,7 @@ import {
   getAllFaultSchema,
   getDeadlinesSchema,
   getFaultByIdSchema,
+  patchListSeenSchema,
 } from '../validations/faultValidation.js';
 import { upload } from '../middleware/multer.js';
 import {
@@ -13,6 +14,9 @@ import {
   getAllFault,
   getFaultById,
   getFaultDeadlines,
+  getListSeen,
+  markFaultSeen,
+  patchListSeen,
 } from '../controllers/faultController.js';
 
 const router = Router();
@@ -36,6 +40,21 @@ router.get(
   getFaultDeadlines,
 );
 
+// Per-list lastSeen timestamps (static segment — keep before :faultId).
+router.get('/faults/list-seen', getListSeen);
+router.patch(
+  '/faults/list-seen',
+  celebrate(patchListSeenSchema),
+  patchListSeen,
+);
+
 router.get('/faults/:faultId', celebrate(getFaultByIdSchema), getFaultById);
+
+// Mark a single fault individually seen (detail-open / claim).
+router.post(
+  '/faults/:faultId/seen',
+  celebrate(getFaultByIdSchema),
+  markFaultSeen,
+);
 
 export default router;

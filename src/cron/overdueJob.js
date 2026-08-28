@@ -5,11 +5,15 @@ import { logEvent } from '../services/auditLog.js';
 import { emitFaultStatusChanged } from '../socket/emitters.js';
 import { todayInZone } from './workCalendar.js';
 
-const ACTIVE_STATUSES = [
-  STATUS_FAULT.CREATED,
-  STATUS_FAULT.IN_PROGRESS,
-  STATUS_FAULT.SUSPENDED,
-];
+// Only faults nobody is actively handling get auto-escalated to Overdue:
+// a Created fault past its deadline is stalled work that still needs to be
+// picked up. In progress and Suspended are deliberately excluded — a
+// technician is already on them (or has paused them by explicit choice),
+// and flipping the status would (a) silently overwrite the state the
+// worker just set and (b) make an in-work fault look claimable again
+// ("Prendi in carico" reappears). Their lateness is shown by the red
+// deadline highlighting instead.
+const ESCALATABLE_STATUSES = [STATUS_FAULT.CREATED];
 
 export const runOverdueScan = async () => {
   const settings = await getSettings();
@@ -21,7 +25,7 @@ export const runOverdueScan = async () => {
     // to strings, so a null deadline never matched to begin with. This just
     // states the intended guard once instead of twice-but-really-once.
     deadline: { $exists: true, $nin: [null, ''], $lt: today },
-    statusFault: { $in: ACTIVE_STATUSES },
+    statusFault: { $in: ESCALATABLE_STATUSES },
   });
 
   if (candidates.length === 0) {

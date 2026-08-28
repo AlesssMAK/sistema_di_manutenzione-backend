@@ -236,6 +236,29 @@ export const stockOut = async (req, res) => {
   );
   const warehouse = await ensureWarehouse(warehouseId);
   const itemsById = await loadItems(lines);
+
+  // Strict mode (fault write-off): refuse the whole issue — writing
+  // nothing — if any line would drop below zero, so a fault can't be
+  // closed against stock that isn't on hand.
+  if (req.body.strict === true || req.body.strict === 'true') {
+    const shortages = [];
+    for (const line of lines) {
+      const level = await StockLevel.findOne({
+        itemId: line.itemId,
+        warehouseId,
+      });
+      const available = level?.quantity ?? 0;
+      if (line.quantity > available) {
+        const name =
+          itemsById.get(String(line.itemId))?.name ?? String(line.itemId);
+        shortages.push(`${name} (${available})`);
+      }
+    }
+    if (shortages.length > 0) {
+      throw createHttpError(409, `Out of stock: ${shortages.join(', ')}`);
+    }
+  }
+
   const batchId = new mongoose.Types.ObjectId();
   const results = [];
   const warnings = [];

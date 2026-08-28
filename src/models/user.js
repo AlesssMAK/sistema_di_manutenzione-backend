@@ -77,14 +77,16 @@ const userSchema = new Schema(
     // warehouses. `canOperateWarehouse` stays the general on/off; this
     // only narrows WHICH warehouses. Admins are never restricted.
     allowedWarehouses: [{ type: Schema.Types.ObjectId, ref: 'Warehouse' }],
-    // Per-tab "last seen" timestamps for the maintenance-worker board.
-    // Drive the unseen-count badges: a fault counts as new when its
-    // relevant timestamp is later than the tab's lastSeen.
-    maintenanceSeen: {
-      active: { type: Date, default: null },
-      overdue: { type: Date, default: null },
-      completed: { type: Date, default: null },
-      pool: { type: Date, default: null },
+    // Per-list "last seen" timestamps, keyed by a dot-free `<role>_<tab>`
+    // string (e.g. 'worker_active', 'manager_received', 'safety_all').
+    // Drives the "cleared on list open" behaviour for faults assigned to
+    // OTHERS (model A): such a fault counts as new while its updatedAt is
+    // later than the list's lastSeen. Faults that are mine or in the pool
+    // (model B) are tracked individually via the FaultView model instead.
+    listSeen: {
+      type: Map,
+      of: Date,
+      default: {},
     },
   },
   { timestamps: true, versionKey: false },
