@@ -85,6 +85,13 @@ export const getAllFaultSchema = {
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
     plannedDate: Joi.string().trim().optional(),
+    // Planned-date range (from the Filtri panel).
+    plannedDateFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    plannedDateTo: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     assignedTo: Joi.string().trim().optional(),
     assignedToEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
     // statusFault accepts a single value or a CSV list (e.g. "In progress,Suspended,Overdue")
@@ -129,6 +136,30 @@ export const getAllFaultSchema = {
       'completedAt',
     ),
     sortOrder: Joi.string().valid('asc', 'desc').default('asc'),
+    // Opt-in unseen annotation for the fault boards. withUnseen turns on
+    // per-card `unseen` + board-level `hasUnseen`; seenSince is the current
+    // list's lastSeen (model A for faults assigned to others).
+    withUnseen: Joi.boolean().truthy('true').falsy('false').optional(),
+    seenSince: Joi.date().iso().optional(),
+  }),
+};
+
+export const patchListSeenSchema = {
+  [Segments.BODY]: Joi.object({
+    key: Joi.string()
+      .valid(
+        'worker_active',
+        'worker_suspended',
+        'worker_overdue',
+        'worker_completed',
+        'worker_pool',
+        'manager_received',
+        'manager_suspended',
+        'manager_inprogress',
+        'manager_archive',
+        'safety_all',
+      )
+      .required(),
   }),
 };
 
@@ -244,13 +275,10 @@ export const updateFaultByMaintenanceWorkerSchema = {
       .valid(...Object.values(STATUS_FAULT))
       .required(),
     commentMaintenanceWorker: Joi.string().allow('', null).optional(),
-    actualDuration: Joi.alternatives().conditional('statusFault', {
-      is: STATUS_FAULT.COMPLETED,
-      then: Joi.number().min(1).required().messages({
-        'any.required': 'actualDuration is required when statusFault is Completed',
-      }),
-      otherwise: Joi.number().min(1).optional(),
-    }),
+    // Optional even on completion: the controller applies the floor
+    // (never below the already-worked time) and the 15-minute default for
+    // an empty/zero value, so validation only guards the numeric shape.
+    actualDuration: Joi.number().min(0).optional(),
     suspensionReason: Joi.alternatives().conditional('statusFault', {
       is: STATUS_FAULT.SUSPENDED,
       then: Joi.string().trim().min(3).required().messages({

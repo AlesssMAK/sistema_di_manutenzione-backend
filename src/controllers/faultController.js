@@ -1,9 +1,25 @@
 import createHttpError from 'http-errors';
 import mongoose from 'mongoose';
 import { Fault } from '../models/fault.js';
+import { FaultView } from '../models/faultView.js';
 import { Plant } from '../models/plant.js';
 import { PlantPart } from '../models/part.js';
 import { User } from '../models/user.js';
+
+// Dot-free `<role>_<tab>` keys for the per-list "last seen" timestamps
+// (User.listSeen). Kept in sync with the front-end tab definitions.
+export const LIST_SEEN_KEYS = [
+  'worker_active',
+  'worker_suspended',
+  'worker_overdue',
+  'worker_completed',
+  'worker_pool',
+  'manager_received',
+  'manager_suspended',
+  'manager_inprogress',
+  'manager_archive',
+  'safety_all',
+];
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 import { emitFaultCreated } from '../socket/emitters.js';
 import {
@@ -164,6 +180,8 @@ export const getAllFault = async (req, res) => {
     timeCreated,
     deadline,
     plannedDate,
+    plannedDateFrom,
+    plannedDateTo,
     statusFault,
     assignedTo,
     assignedToEmpty,
@@ -172,6 +190,12 @@ export const getAllFault = async (req, res) => {
     sortOrder = 'asc',
     page = 1,
     perPage = 2,
+    // Unseen annotation: when withUnseen is set, each returned fault gets
+    // an `unseen` flag and the response carries a board-level `hasUnseen`.
+    // `seenSince` is the current list's lastSeen timestamp (drives model A
+    // for faults assigned to others). celebrate coerces both.
+    withUnseen,
+    seenSince,
   } = req.query;
 
   const query = {};
@@ -180,12 +204,22 @@ export const getAllFault = async (req, res) => {
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
-  // Free-text search box on the manager list — partial match on the
-  // fault code or the operator who reported it.
+  // Free-text search — partial match on the fault code, the reporter,
+  // or the machine / part (by name or code). Plant/part live in other
+  // collections, so resolve the matching ids first.
   if (search) {
+    const rx = new RegExp(search, 'i');
+    const [matchedPlants, matchedParts] = await Promise.all([
+      Plant.find({ $or: [{ namePlant: rx }, { code: rx }] }).select('_id'),
+      PlantPart.find({
+        $or: [{ namePlantPart: rx }, { codePlantPart: rx }],
+      }).select('_id'),
+    ]);
     query.$or = [
-      { faultId: new RegExp(search, 'i') },
-      { nameOperator: new RegExp(search, 'i') },
+      { faultId: rx },
+      { nameOperator: rx },
+      { plantId: { $in: matchedPlants.map((p) => p._id) } },
+      { partId: { $in: matchedParts.map((p) => p._id) } },
     ];
   }
   if (createdById) query.userId = createdById;
@@ -199,7 +233,16 @@ export const getAllFault = async (req, res) => {
     query.dataCreated = { $gte: dataCreatedFrom };
   }
   if (timeCreated) query.timeCreated = timeCreated;
-  if (plannedDate) query.plannedDate = plannedDate;
+  // A plannedDate range (from Filtri) wins over the single-day filter
+  // (from the calendar). plannedDate is a 'YYYY-MM-DD' string, so string
+  // comparison orders it correctly.
+  if (plannedDateFrom || plannedDateTo) {
+    query.plannedDate = {};
+    if (plannedDateFrom) query.plannedDate.$gte = plannedDateFrom;
+    if (plannedDateTo) query.plannedDate.$lte = plannedDateTo;
+  } else if (plannedDate) {
+    query.plannedDate = plannedDate;
+  }
   // assignedToEmpty takes precedence — pool fault filter
   if (assignedToEmpty === true || assignedToEmpty === 'true') {
     query.assignedMaintainers = { $size: 0 };
@@ -264,13 +307,167 @@ export const getAllFault = async (req, res) => {
 
   const totalPage = Math.ceil(totalFault / perPage);
 
+  // Unseen annotation (opt-in). Adds a per-card `unseen` flag and a
+  // board-level `hasUnseen`. See computeUnseenState for the model A/B rules.
+  let hasUnseen;
+  if (withUnseen === true || withUnseen === 'true') {
+    const userId = req.user?._id;
+    const seenSinceDate = seenSince ? new Date(seenSince) : null;
+
+    // Per-card flags for the current page: one lookup of the viewer's
+    // FaultView rows for the visible ids.
+    const pageIds = fault.map((f) => f._id);
+    const views = await FaultView.find({
+      user: userId,
+      fault: { $in: pageIds },
+    })
+      .select('fault seenAt')
+      .lean();
+    const viewMap = new Map(
+      views.map((v) => [String(v.fault), new Date(v.seenAt)]),
+    );
+    for (const f of fault) {
+      f.unseen = isFaultUnseen(f, userId, viewMap, seenSinceDate);
+    }
+
+    // Board-level flag over the WHOLE query (not just the page) so a tab
+    // dot reflects unseen faults on later pages too.
+    hasUnseen = await queryHasUnseen(query, userId, seenSinceDate);
+  }
+
   res.status(200).json({
     page,
     perPage,
     totalFault,
     totalPage,
+    ...(hasUnseen === undefined ? {} : { hasUnseen }),
     fault,
   });
+};
+
+// A fault is individually "seen" only while a FaultView.seenAt is at or
+// after its updatedAt — a later change re-flags it. mineOrPool faults
+// (model B) rely purely on that; faults assigned to others (model A) are
+// additionally cleared once the list's lastSeen (seenSince) passes their
+// updatedAt.
+const isFaultUnseen = (fault, userId, viewMap, seenSinceDate) => {
+  const uid = String(userId ?? '');
+  const assigned = fault.assignedMaintainers ?? [];
+  // Completed faults are historical — always model A (a glance at the list
+  // clears them), never the persist-until-opened model B.
+  const isCompleted = fault.statusFault === 'Completed';
+  const treatAsB =
+    !isCompleted &&
+    (assigned.length === 0 ||
+      assigned.some((m) => String(m?._id ?? m) === uid));
+
+  const viewSeenAt = viewMap.get(String(fault._id)) ?? null;
+  const individuallySeen =
+    viewSeenAt !== null && viewSeenAt >= new Date(fault.updatedAt);
+
+  if (treatAsB) return !individuallySeen;
+
+  const tabNew = seenSinceDate
+    ? new Date(fault.updatedAt) > seenSinceDate
+    : false;
+  return tabNew && !individuallySeen;
+};
+
+// Does any fault in `query` count as unseen for this user? Mirrors
+// isFaultUnseen but in an aggregation so it spans every page. Returns as
+// soon as one match is found ($limit 1).
+const queryHasUnseen = async (query, userId, seenSinceDate) => {
+  const meId = new mongoose.Types.ObjectId(String(userId));
+
+  // Aggregation's $match does NOT auto-cast string ids to ObjectId the way
+  // .find() does, so id filters built as strings (assignedTo, createdById)
+  // would silently match nothing. Cast the known id fields.
+  const match = { ...query };
+  if (typeof match.assignedMaintainers === 'string') {
+    match.assignedMaintainers = new mongoose.Types.ObjectId(
+      match.assignedMaintainers,
+    );
+  }
+  if (typeof match.userId === 'string') {
+    match.userId = new mongoose.Types.ObjectId(match.userId);
+  }
+
+  const aBranch = seenSinceDate
+    ? {
+        $and: [
+          { $gt: ['$updatedAt', seenSinceDate] },
+          { $eq: ['$individuallySeen', false] },
+        ],
+      }
+    : false;
+
+  const rows = await Fault.aggregate([
+    { $match: match },
+    {
+      $lookup: {
+        from: 'faultviews',
+        let: { fid: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [{ $eq: ['$user', meId] }, { $eq: ['$fault', '$$fid'] }],
+              },
+            },
+          },
+          { $project: { seenAt: 1 } },
+        ],
+        as: 'view',
+      },
+    },
+    {
+      $addFields: {
+        // Completed faults are historical — force model A (see isFaultUnseen).
+        mineOrPool: {
+          $and: [
+            { $ne: ['$statusFault', 'Completed'] },
+            {
+              $or: [
+                {
+                  $eq: [
+                    { $size: { $ifNull: ['$assignedMaintainers', []] } },
+                    0,
+                  ],
+                },
+                { $in: [meId, { $ifNull: ['$assignedMaintainers', []] }] },
+              ],
+            },
+          ],
+        },
+        viewSeenAt: { $arrayElemAt: ['$view.seenAt', 0] },
+      },
+    },
+    {
+      $addFields: {
+        individuallySeen: {
+          $and: [
+            { $ne: ['$viewSeenAt', null] },
+            { $gte: ['$viewSeenAt', '$updatedAt'] },
+          ],
+        },
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $cond: [
+            '$mineOrPool',
+            { $eq: ['$individuallySeen', false] },
+            aBranch,
+          ],
+        },
+      },
+    },
+    { $limit: 1 },
+    { $project: { _id: 1 } },
+  ]);
+
+  return rows.length > 0;
 };
 
 export const getFaultById = async (req, res) => {
@@ -360,4 +557,40 @@ export const getFaultDeadlines = async (req, res) => {
   }));
 
   res.status(200).json({ field, dateFrom, dateTo, dates });
+};
+
+// ---------- POST /faults/:faultId/seen ----------
+// Mark a single fault as individually seen (model B / detail-open / claim).
+// Upserts the viewer's FaultView so its unseen dot clears until the fault
+// next changes.
+export const markFaultSeen = async (req, res) => {
+  const userId = req.user._id;
+  const { faultId } = req.params;
+  await FaultView.updateOne(
+    { user: userId, fault: faultId },
+    { $set: { seenAt: new Date() } },
+    { upsert: true },
+  );
+  return res.status(204).end();
+};
+
+// ---------- GET /faults/list-seen ----------
+// The viewer's per-list lastSeen timestamps ({ '<role>_<tab>': ISO }).
+// The front-end feeds these back as `seenSince` when loading each board.
+export const getListSeen = async (req, res) => {
+  const user = await User.findById(req.user._id).select('listSeen');
+  const obj = user?.listSeen ? Object.fromEntries(user.listSeen) : {};
+  return res.status(200).json(obj);
+};
+
+// ---------- PATCH /faults/list-seen ----------
+// Advance one list's lastSeen to now — the "opening the list clears its
+// others-assigned (model A) cards" action.
+export const patchListSeen = async (req, res) => {
+  const { key } = req.body;
+  await User.updateOne(
+    { _id: req.user._id },
+    { $set: { [`listSeen.${key}`]: new Date() } },
+  );
+  return res.status(204).end();
 };

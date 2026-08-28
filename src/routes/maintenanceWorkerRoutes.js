@@ -7,8 +7,6 @@ import {
   addFaultByMaintenanceWorker,
   claimFault,
   getAllMaintenanceWorker,
-  getMaintenanceTabCounts,
-  markMaintenanceTabSeen,
 } from '../controllers/maintenanceWorkerController.js';
 import {
   claimFaultSchema,
@@ -23,20 +21,6 @@ router.get(
   '/maintenance-worker',
   authorizeRoles('manager', 'admin', 'maintenanceWorker'),
   ctrlWrapper(getAllMaintenanceWorker),
-);
-
-// Unseen-count badges + mark-seen for the worker board. Static segments,
-// so they never collide with the '/fault/:faultId' routes below.
-router.get(
-  '/maintenance-worker/tab-counts',
-  authorizeRoles('maintenanceWorker', 'admin'),
-  ctrlWrapper(getMaintenanceTabCounts),
-);
-
-router.patch(
-  '/maintenance-worker/seen',
-  authorizeRoles('maintenanceWorker', 'admin'),
-  ctrlWrapper(markMaintenanceTabSeen),
 );
 
 // claim must be registered BEFORE the generic :faultId route so that

@@ -1,6 +1,7 @@
 import createHttpError from 'http-errors';
 import { DateTime } from 'luxon';
 import { Fault } from '../models/fault.js';
+import { FaultView } from '../models/faultView.js';
 import { User } from '../models/user.js';
 import {
   emitFaultStatusChanged,
@@ -13,7 +14,9 @@ import { getSettings } from '../services/systemSettings.js';
 const ALLOWED_TRANSITIONS = {
   Created: [], // only via claim
   'In progress': ['Completed', 'Suspended'],
-  Suspended: ['In progress', 'Completed'],
+  // Must be resumed before completing — the worker Riprendi's first, which
+  // also guarantees the post-resume span is added to the worked time.
+  Suspended: ['In progress'],
   Overdue: ['Completed'], // overdue can still be wrapped up
   Completed: [], // terminal
 };
@@ -120,6 +123,14 @@ export const claimFault = async (req, res) => {
   });
   await updated.save();
 
+  // Claiming counts as "seen" — clear this fault's unseen dot for the
+  // claimer (mirrors the detail-open mark-seen).
+  await FaultView.updateOne(
+    { user: userId, fault: updated._id },
+    { $set: { seenAt: new Date() } },
+    { upsert: true },
+  );
+
   const populated = await populateFault(updated._id);
 
   emitFaultStatusChanged(populated._id, {
@@ -138,58 +149,6 @@ export const claimFault = async (req, res) => {
   });
 
   return res.status(200).json(populated);
-};
-
-// ---------- GET /maintenance-worker/tab-counts ----------
-// Unseen-count badges for the worker board. "New" = the fault's relevant
-// timestamp is later than the tab's lastSeen (persisted per user).
-const SEEN_TABS = ['active', 'overdue', 'completed', 'pool'];
-
-export const getMaintenanceTabCounts = async (req, res) => {
-  const userId = req.user._id;
-  const user = await User.findById(userId).select('maintenanceSeen').lean();
-  const seen = user?.maintenanceSeen ?? {};
-  const since = (d) => (d ? new Date(d) : new Date(0));
-
-  const [active, overdue, completed, pool] = await Promise.all([
-    Fault.countDocuments({
-      assignedMaintainers: userId,
-      statusFault: { $in: ['Created', 'In progress', 'Suspended'] },
-      updatedAt: { $gt: since(seen.active) },
-    }),
-    Fault.countDocuments({
-      assignedMaintainers: userId,
-      statusFault: 'Overdue',
-      updatedAt: { $gt: since(seen.overdue) },
-    }),
-    Fault.countDocuments({
-      assignedMaintainers: userId,
-      statusFault: 'Completed',
-      updatedAt: { $gt: since(seen.completed) },
-    }),
-    // Pool = unassigned faults still up for grabs; "new" by creation time.
-    Fault.countDocuments({
-      assignedMaintainers: { $size: 0 },
-      statusFault: { $in: ['Created', 'Overdue'] },
-      createdAt: { $gt: since(seen.pool) },
-    }),
-  ]);
-
-  return res.status(200).json({ active, overdue, completed, pool });
-};
-
-// ---------- PATCH /maintenance-worker/seen ----------
-export const markMaintenanceTabSeen = async (req, res) => {
-  const userId = req.user._id;
-  const { tab } = req.body;
-  if (!SEEN_TABS.includes(tab)) {
-    throw createHttpError(400, 'Invalid tab');
-  }
-  await User.updateOne(
-    { _id: userId },
-    { $set: { [`maintenanceSeen.${tab}`]: new Date() } },
-  );
-  return res.status(204).end();
 };
 
 export const addFaultByMaintenanceWorker = async (req, res) => {
@@ -258,29 +217,54 @@ export const addFaultByMaintenanceWorker = async (req, res) => {
     updateData.workedMs = finalMs;
     updateData.workStartedAt = null;
     updateData.completedAt = now;
-    // Auto-computed default in minutes (min 1). The field is editable on
-    // the client, so an explicit value from the technician wins.
-    const computed = Math.max(1, Math.round(finalMs / 60000));
-    updateData.actualDuration =
+    // Floor = time already booked BEFORE this completion (finished spans,
+    // i.e. everything up to the last suspension). The technician-stated
+    // duration is editable but can never dip below what was actually
+    // worked, and empty/zero falls back to a sensible 15-minute default.
+    const bookedMin = Math.round((fault.workedMs ?? 0) / 60000);
+    let stated =
       actualDuration != null && actualDuration !== ''
-        ? actualDuration
-        : computed;
+        ? Number(actualDuration)
+        : 0;
+    if (stated > 0 && stated < bookedMin) {
+      throw createHttpError(
+        400,
+        `Actual duration cannot be less than the time already worked (${bookedMin} min)`,
+      );
+    }
+    if (stated <= 0) stated = Math.max(15, bookedMin);
+    updateData.actualDuration = stated;
   } else if (statusFault === 'Suspended') {
+    // Latest reason drives the current-suspension card callout.
     updateData.suspensionReason = suspensionReason;
     // Close the running span and pause the clock.
     updateData.workedMs = (fault.workedMs ?? 0) + runningMs;
     updateData.workStartedAt = null;
+    // Append to the suspension log — a fault can be paused repeatedly and
+    // each pause keeps its own date + reason. The material note is NOT
+    // stored here; it goes to the shared material list (see below). Guard
+    // the array for faults created before this field existed.
+    if (!Array.isArray(fault.suspensions)) fault.suspensions = [];
+    fault.suspensions.push({
+      suspendedAt: now,
+      reason: suspensionReason ?? '',
+    });
   } else if (statusFault === 'In progress' && previousStatus === 'Suspended') {
     // Resume — restart the clock without touching accumulated time, and
     // re-arm the overtime alert for the new span.
     updateData.workStartedAt = now;
     updateData.overtimeNotifiedAt = null;
   }
-  // Material used/needed is captured on both completion and suspension,
-  // so persist it whenever the client sends it rather than gating it on
-  // the Suspended branch.
-  if (materialRequest !== undefined) {
-    updateData.materialRequest = materialRequest;
+
+  // Material note lands in the shared material list (fault.materialRequest,
+  // shown in the materials panel) whether it was sent on suspend or on
+  // completion. It APPENDS (never overwrites) so notes from earlier pauses
+  // are not lost — each non-empty note becomes its own line.
+  if (typeof materialRequest === 'string' && materialRequest.trim() !== '') {
+    updateData.materialRequest = [fault.materialRequest, materialRequest.trim()]
+      .map((s) => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean)
+      .join('\n');
   }
 
   fault.history.push({
