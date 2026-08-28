@@ -164,6 +164,8 @@ export const getAllFault = async (req, res) => {
     timeCreated,
     deadline,
     plannedDate,
+    plannedDateFrom,
+    plannedDateTo,
     statusFault,
     assignedTo,
     assignedToEmpty,
@@ -180,12 +182,22 @@ export const getAllFault = async (req, res) => {
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
-  // Free-text search box on the manager list — partial match on the
-  // fault code or the operator who reported it.
+  // Free-text search — partial match on the fault code, the reporter,
+  // or the machine / part (by name or code). Plant/part live in other
+  // collections, so resolve the matching ids first.
   if (search) {
+    const rx = new RegExp(search, 'i');
+    const [matchedPlants, matchedParts] = await Promise.all([
+      Plant.find({ $or: [{ namePlant: rx }, { code: rx }] }).select('_id'),
+      PlantPart.find({
+        $or: [{ namePlantPart: rx }, { codePlantPart: rx }],
+      }).select('_id'),
+    ]);
     query.$or = [
-      { faultId: new RegExp(search, 'i') },
-      { nameOperator: new RegExp(search, 'i') },
+      { faultId: rx },
+      { nameOperator: rx },
+      { plantId: { $in: matchedPlants.map((p) => p._id) } },
+      { partId: { $in: matchedParts.map((p) => p._id) } },
     ];
   }
   if (createdById) query.userId = createdById;
@@ -199,7 +211,16 @@ export const getAllFault = async (req, res) => {
     query.dataCreated = { $gte: dataCreatedFrom };
   }
   if (timeCreated) query.timeCreated = timeCreated;
-  if (plannedDate) query.plannedDate = plannedDate;
+  // A plannedDate range (from Filtri) wins over the single-day filter
+  // (from the calendar). plannedDate is a 'YYYY-MM-DD' string, so string
+  // comparison orders it correctly.
+  if (plannedDateFrom || plannedDateTo) {
+    query.plannedDate = {};
+    if (plannedDateFrom) query.plannedDate.$gte = plannedDateFrom;
+    if (plannedDateTo) query.plannedDate.$lte = plannedDateTo;
+  } else if (plannedDate) {
+    query.plannedDate = plannedDate;
+  }
   // assignedToEmpty takes precedence — pool fault filter
   if (assignedToEmpty === true || assignedToEmpty === 'true') {
     query.assignedMaintainers = { $size: 0 };

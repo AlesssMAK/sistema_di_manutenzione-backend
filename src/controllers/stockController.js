@@ -508,8 +508,16 @@ export const stockSetMin = async (req, res) => {
 // Movement history, newest first. Filterable by item, warehouse, fault
 // or movement type.
 export const getMovements = async (req, res) => {
-  const { itemId, warehouseId, faultId, type, page = 1, perPage = 20 } =
-    req.query;
+  const {
+    itemId,
+    warehouseId,
+    faultId,
+    type,
+    dateFrom,
+    dateTo,
+    page = 1,
+    perPage = 20,
+  } = req.query;
   const skip = (page - 1) * perPage;
 
   const filter = {};
@@ -517,6 +525,17 @@ export const getMovements = async (req, res) => {
   if (warehouseId) filter.warehouseId = warehouseId;
   if (faultId) filter['reference.faultId'] = faultId;
   if (type) filter.type = type;
+  // Date range over the movement timestamp ('YYYY-MM-DD'); the upper
+  // bound covers the whole day.
+  if (dateFrom || dateTo) {
+    filter.createdAt = {};
+    if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+    if (dateTo) {
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = end;
+    }
+  }
 
   const [totalItems, movements] = await Promise.all([
     StockMovement.countDocuments(filter),

@@ -17,18 +17,20 @@ export const requireWarehouseEnabled = async (req, res, next) => {
 };
 
 // Read access to the warehouse catalog/stock. Broader than management:
-// besides admins and the warehouse grants, maintenance workers may read
-// (items + warehouses) because issuing materials against their own fault
-// needs it. The write-off itself is gated separately (fault assignment +
-// the warehouse being in the role's fault set), not by this.
+// besides admins and the warehouse grants, oversight roles may read.
+// - maintenanceWorker: needs the catalog to issue fault materials.
+// - manager / safety: see the materials issued against a fault on the
+//   fault detail (FaultMaterialsUsed).
+// The write-off itself is gated separately (fault assignment + the
+// warehouse being in the role's fault set), not by this.
+const READ_ROLES = ['admin', 'maintenanceWorker', 'manager', 'safety'];
 export const requireWarehouseRead = (req, res, next) => {
   if (!req.user) {
     throw createHttpError(401, 'Authentication required');
   }
   const { role, permissions } = req.user;
   if (
-    role === 'admin' ||
-    role === 'maintenanceWorker' ||
+    READ_ROLES.includes(role) ||
     permissions?.canManageWarehouse === true ||
     permissions?.canOperateWarehouse === true
   ) {

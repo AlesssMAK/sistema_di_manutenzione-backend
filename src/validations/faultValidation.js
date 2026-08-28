@@ -85,6 +85,13 @@ export const getAllFaultSchema = {
     timeCreated: Joi.string().trim().optional(),
     deadline: Joi.string().trim().optional(),
     plannedDate: Joi.string().trim().optional(),
+    // Planned-date range (from the Filtri panel).
+    plannedDateFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    plannedDateTo: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     assignedTo: Joi.string().trim().optional(),
     assignedToEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
     // statusFault accepts a single value or a CSV list (e.g. "In progress,Suspended,Overdue")
