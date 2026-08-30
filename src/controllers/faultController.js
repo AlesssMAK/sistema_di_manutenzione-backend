@@ -17,6 +17,7 @@ export const LIST_SEEN_KEYS = [
   'worker_completed',
   'worker_pool',
   'manager_received',
+  'manager_planned',
   'manager_suspended',
   'manager_inprogress',
   'manager_archive',
@@ -192,6 +193,7 @@ export const getAllFault = async (req, res) => {
     statusFault,
     assignedTo,
     assignedToEmpty,
+    assignedToNotEmpty,
     sort = 'desc',
     sortBy = 'dataCreated',
     sortOrder = 'asc',
@@ -277,9 +279,13 @@ export const getAllFault = async (req, res) => {
         .toJSDate();
     }
   }
-  // assignedToEmpty takes precedence — pool fault filter
+  // assignedToEmpty takes precedence — pool fault filter (e.g. manager
+  // "Ricevute" = Created not yet assigned). assignedToNotEmpty is the
+  // opposite (manager "Pianificati" = Created already assigned/planned).
   if (assignedToEmpty === true || assignedToEmpty === 'true') {
     query.assignedMaintainers = { $size: 0 };
+  } else if (assignedToNotEmpty === true || assignedToNotEmpty === 'true') {
+    query['assignedMaintainers.0'] = { $exists: true };
   } else if (assignedTo) {
     query.assignedMaintainers = assignedTo;
   }

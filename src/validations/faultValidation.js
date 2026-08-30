@@ -111,6 +111,7 @@ export const getAllFaultSchema = {
       .optional(),
     assignedTo: Joi.string().trim().optional(),
     assignedToEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
+    assignedToNotEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
     // statusFault accepts a single value or a CSV list (e.g. "In progress,Suspended,Overdue")
     statusFault: Joi.string()
       .trim()
@@ -172,6 +173,7 @@ export const patchListSeenSchema = {
         'worker_completed',
         'worker_pool',
         'manager_received',
+        'manager_planned',
         'manager_suspended',
         'manager_inprogress',
         'manager_archive',
