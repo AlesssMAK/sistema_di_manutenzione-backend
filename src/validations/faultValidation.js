@@ -92,6 +92,9 @@ export const getAllFaultSchema = {
     plannedDateTo: Joi.string()
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    // Presence filters — "Ricevute" (not planned) vs "Pianificate" (planned).
+    plannedDateEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
+    plannedDateNotEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
     // Deadline range — the "In ritardo" tab's calendar buckets by deadline,
     // so a day click / Filtri range narrows the list by deadline too.
     deadlineFrom: Joi.string()
@@ -109,9 +112,15 @@ export const getAllFaultSchema = {
     completedTo: Joi.string()
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    // "Periodo" — matches a fault if any of its dates is in the range.
+    anyDateFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    anyDateTo: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     assignedTo: Joi.string().trim().optional(),
     assignedToEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
-    assignedToNotEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
     // statusFault accepts a single value or a CSV list (e.g. "In progress,Suspended,Overdue")
     statusFault: Joi.string()
       .trim()

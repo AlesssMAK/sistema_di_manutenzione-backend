@@ -188,12 +188,17 @@ export const getAllFault = async (req, res) => {
     plannedDate,
     plannedDateFrom,
     plannedDateTo,
+    plannedDateEmpty,
+    plannedDateNotEmpty,
     completedFrom,
     completedTo,
+    // "Periodo" filter — a fault matches if ANY of its lifecycle dates
+    // (created / planned / deadline / completed) falls in the range.
+    anyDateFrom,
+    anyDateTo,
     statusFault,
     assignedTo,
     assignedToEmpty,
-    assignedToNotEmpty,
     sort = 'desc',
     sortBy = 'dataCreated',
     sortOrder = 'asc',
@@ -208,6 +213,10 @@ export const getAllFault = async (req, res) => {
   } = req.query;
 
   const query = {};
+  // Each entry is an array of OR-conditions; combined with $and at the end
+  // so independent OR groups (search + the "any date" period) don't clobber
+  // each other on query.$or.
+  const orGroups = [];
 
   // Deadline: a range (calendar day / Filtri) wins over the single value.
   // Stored as 'YYYY-MM-DD' strings, so lexicographic bounds are chronological.
@@ -232,12 +241,12 @@ export const getAllFault = async (req, res) => {
         $or: [{ namePlantPart: rx }, { codePlantPart: rx }],
       }).select('_id'),
     ]);
-    query.$or = [
+    orGroups.push([
       { faultId: rx },
       { nameOperator: rx },
       { plantId: { $in: matchedPlants.map((p) => p._id) } },
       { partId: { $in: matchedParts.map((p) => p._id) } },
-    ];
+    ]);
   }
   if (createdById) query.userId = createdById;
   if (typeFault) query.typeFault = typeFault;
@@ -253,12 +262,19 @@ export const getAllFault = async (req, res) => {
   // A plannedDate range (from Filtri) wins over the single-day filter
   // (from the calendar). plannedDate is a 'YYYY-MM-DD' string, so string
   // comparison orders it correctly.
-  if (plannedDateFrom || plannedDateTo) {
+  // "Ricevute" = not yet planned (no plannedDate); "Pianificate" = already
+  // planned (a plannedDate is set). An explicit date / range is more
+  // specific and wins over the presence checks.
+  if (plannedDateEmpty === true || plannedDateEmpty === 'true') {
+    query.plannedDate = { $in: [null, ''] };
+  } else if (plannedDateFrom || plannedDateTo) {
     query.plannedDate = {};
     if (plannedDateFrom) query.plannedDate.$gte = plannedDateFrom;
     if (plannedDateTo) query.plannedDate.$lte = plannedDateTo;
   } else if (plannedDate) {
     query.plannedDate = plannedDate;
+  } else if (plannedDateNotEmpty === true || plannedDateNotEmpty === 'true') {
+    query.plannedDate = { $nin: [null, ''] };
   }
   // completedAt is a Date, so a 'YYYY-MM-DD' bound has to be turned into a
   // timezone-aware instant range (start-of-day → start of the day after),
@@ -279,13 +295,38 @@ export const getAllFault = async (req, res) => {
         .toJSDate();
     }
   }
-  // assignedToEmpty takes precedence — pool fault filter (e.g. manager
-  // "Ricevute" = Created not yet assigned). assignedToNotEmpty is the
-  // opposite (manager "Pianificati" = Created already assigned/planned).
+  // "Periodo" (any-date) filter — a fault matches if ANY lifecycle date is
+  // in the range. plannedDate/deadline are 'YYYY-MM-DD' strings (lexical
+  // bounds); dataCreated/completedAt are Dates (tz-aware instant range).
+  if (anyDateFrom || anyDateTo) {
+    const settings = await getSettings();
+    const tz = settings?.timezone ?? 'Europe/Rome';
+    const strRange = {};
+    if (anyDateFrom) strRange.$gte = anyDateFrom;
+    if (anyDateTo) strRange.$lte = anyDateTo;
+    const dateRange = {};
+    if (anyDateFrom) {
+      dateRange.$gte = DateTime.fromISO(anyDateFrom, { zone: tz })
+        .startOf('day')
+        .toJSDate();
+    }
+    if (anyDateTo) {
+      dateRange.$lt = DateTime.fromISO(anyDateTo, { zone: tz })
+        .plus({ days: 1 })
+        .startOf('day')
+        .toJSDate();
+    }
+    orGroups.push([
+      { plannedDate: strRange },
+      { deadline: strRange },
+      { dataCreated: dateRange },
+      { completedAt: dateRange },
+    ]);
+  }
+
+  // assignedToEmpty — pool fault filter (unassigned faults).
   if (assignedToEmpty === true || assignedToEmpty === 'true') {
     query.assignedMaintainers = { $size: 0 };
-  } else if (assignedToNotEmpty === true || assignedToNotEmpty === 'true') {
-    query['assignedMaintainers.0'] = { $exists: true };
   } else if (assignedTo) {
     query.assignedMaintainers = assignedTo;
   }
@@ -321,6 +362,13 @@ export const getAllFault = async (req, res) => {
 
     const partIds = parts.map((p) => p._id);
     query.partId = { $in: partIds };
+  }
+
+  // Apply the collected OR groups: one → $or, several → $and of $ors.
+  if (orGroups.length === 1) {
+    query.$or = orGroups[0];
+  } else if (orGroups.length > 1) {
+    query.$and = orGroups.map((group) => ({ $or: group }));
   }
 
   const sortOption = sort === 'asc' ? 1 : -1;
