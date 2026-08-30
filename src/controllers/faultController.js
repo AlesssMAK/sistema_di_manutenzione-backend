@@ -1,5 +1,6 @@
 import createHttpError from 'http-errors';
 import mongoose from 'mongoose';
+import { DateTime } from 'luxon';
 import { Fault } from '../models/fault.js';
 import { FaultView } from '../models/faultView.js';
 import { Plant } from '../models/plant.js';
@@ -10,6 +11,7 @@ import { User } from '../models/user.js';
 // (User.listSeen). Kept in sync with the front-end tab definitions.
 export const LIST_SEEN_KEYS = [
   'worker_active',
+  'worker_inProgress',
   'worker_suspended',
   'worker_overdue',
   'worker_completed',
@@ -29,6 +31,7 @@ import {
 } from '../services/email/index.js';
 import { logFromRequest } from '../services/auditLog.js';
 import { sendPushToRole } from '../services/push/index.js';
+import { getSettings } from '../services/systemSettings.js';
 
 export const createFault = async (req, res) => {
   const {
@@ -179,9 +182,13 @@ export const getAllFault = async (req, res) => {
     dataCreatedFrom,
     timeCreated,
     deadline,
+    deadlineFrom,
+    deadlineTo,
     plannedDate,
     plannedDateFrom,
     plannedDateTo,
+    completedFrom,
+    completedTo,
     statusFault,
     assignedTo,
     assignedToEmpty,
@@ -200,7 +207,15 @@ export const getAllFault = async (req, res) => {
 
   const query = {};
 
-  if (deadline) query.deadline = deadline;
+  // Deadline: a range (calendar day / Filtri) wins over the single value.
+  // Stored as 'YYYY-MM-DD' strings, so lexicographic bounds are chronological.
+  if (deadlineFrom || deadlineTo) {
+    query.deadline = {};
+    if (deadlineFrom) query.deadline.$gte = deadlineFrom;
+    if (deadlineTo) query.deadline.$lte = deadlineTo;
+  } else if (deadline) {
+    query.deadline = deadline;
+  }
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
@@ -242,6 +257,25 @@ export const getAllFault = async (req, res) => {
     if (plannedDateTo) query.plannedDate.$lte = plannedDateTo;
   } else if (plannedDate) {
     query.plannedDate = plannedDate;
+  }
+  // completedAt is a Date, so a 'YYYY-MM-DD' bound has to be turned into a
+  // timezone-aware instant range (start-of-day → start of the day after),
+  // matching how the Completate calendar buckets the closes.
+  if (completedFrom || completedTo) {
+    const settings = await getSettings();
+    const tz = settings?.timezone ?? 'Europe/Rome';
+    query.completedAt = {};
+    if (completedFrom) {
+      query.completedAt.$gte = DateTime.fromISO(completedFrom, { zone: tz })
+        .startOf('day')
+        .toJSDate();
+    }
+    if (completedTo) {
+      query.completedAt.$lt = DateTime.fromISO(completedTo, { zone: tz })
+        .plus({ days: 1 })
+        .startOf('day')
+        .toJSDate();
+    }
   }
   // assignedToEmpty takes precedence — pool fault filter
   if (assignedToEmpty === true || assignedToEmpty === 'true') {
@@ -511,9 +545,31 @@ export const getFaultDeadlines = async (req, res) => {
     assignedToEmpty,
   } = req.query;
 
-  const match = {
-    [field]: { $gte: dateFrom, $lte: dateTo, $ne: null },
-  };
+  // completedAt is a Date column; plannedDate/deadline are 'YYYY-MM-DD'
+  // strings. For the Date column the bounds become a timezone-aware instant
+  // range and the group key is the day string in that zone, so both string-
+  // and date-backed fields bucket per calendar day the same way.
+  const isDateField = field === 'completedAt';
+  let tz = 'Europe/Rome';
+  if (isDateField) {
+    const settings = await getSettings();
+    tz = settings?.timezone ?? tz;
+  }
+
+  const match = isDateField
+    ? {
+        completedAt: {
+          $gte: DateTime.fromISO(dateFrom, { zone: tz })
+            .startOf('day')
+            .toJSDate(),
+          $lt: DateTime.fromISO(dateTo, { zone: tz })
+            .plus({ days: 1 })
+            .startOf('day')
+            .toJSDate(),
+          $ne: null,
+        },
+      }
+    : { [field]: { $gte: dateFrom, $lte: dateTo, $ne: null } };
 
   if (priority) match.priority = priority;
 
@@ -538,7 +594,15 @@ export const getFaultDeadlines = async (req, res) => {
     { $match: match },
     {
       $group: {
-        _id: `$${field}`,
+        _id: isDateField
+          ? {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$completedAt',
+                timezone: tz,
+              },
+            }
+          : `$${field}`,
         count: { $sum: 1 },
         low: { $sum: { $cond: [{ $eq: ['$priority', 'Low'] }, 1, 0] } },
         medium: { $sum: { $cond: [{ $eq: ['$priority', 'Medium'] }, 1, 0] } },

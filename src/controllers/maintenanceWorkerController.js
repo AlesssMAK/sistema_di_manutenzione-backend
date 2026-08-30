@@ -28,6 +28,32 @@ const populateFault = (id) =>
     .populate({ path: 'assignedMaintainers', select: 'fullName email' })
     .populate({ path: 'managerId', select: 'fullName email' });
 
+// A technician may only have ONE running work span at a time. Returns the
+// other fault they are actively working on (workStartedAt set), if any, so
+// the caller can block the new start and tell the client which fault to
+// finalize / suspend first.
+const findOtherActiveWorkFault = (userId, excludeId) =>
+  Fault.findOne({
+    _id: { $ne: excludeId },
+    assignedMaintainers: userId,
+    workStartedAt: { $ne: null },
+  })
+    .select(
+      'faultId statusFault plannedDate plannedTime plantId partId workedMs workStartedAt',
+    )
+    .populate({ path: 'plantId', select: 'namePlant code' })
+    .populate({ path: 'partId', select: 'namePlantPart codePlantPart' })
+    .lean();
+
+// Structured 409 so the front-end can show the "già al lavoro" modal
+// (finalize / suspend / continue) instead of a generic error toast.
+const alreadyWorkingResponse = (res, activeFault) =>
+  res.status(409).json({
+    code: 'ALREADY_WORKING',
+    message: 'You are already working on another fault',
+    activeFault,
+  });
+
 export const getAllMaintenanceWorker = async (req, res) => {
   const maintenanceWorker = await User.find({
     role: 'maintenanceWorker',
@@ -56,6 +82,13 @@ export const claimFault = async (req, res) => {
 
   const claimableStatuses = ['Created', 'Overdue'];
   const previousStatus = original.statusFault;
+
+  // One running work span at a time — block the claim if the technician is
+  // already working on another fault.
+  const activeFault = await findOtherActiveWorkFault(userId, faultId);
+  if (activeFault) {
+    return alreadyWorkingResponse(res, activeFault);
+  }
 
   // Determine "today" in the system timezone so pool faults (claimed
   // without prior manager planning) get a sensible default plannedDate.
@@ -194,6 +227,16 @@ export const addFaultByMaintenanceWorker = async (req, res) => {
         409,
         `Invalid status transition: ${previousStatus} → ${statusFault}`,
       );
+    }
+  }
+
+  // Resuming a suspended fault starts a new work span — block it if the
+  // technician is already running another fault (one at a time). Finalize /
+  // suspend of the CURRENT fault stay allowed, since those free the span.
+  if (statusFault === 'In progress' && previousStatus === 'Suspended') {
+    const activeFault = await findOtherActiveWorkFault(userId, faultId);
+    if (activeFault) {
+      return alreadyWorkingResponse(res, activeFault);
     }
   }
 
