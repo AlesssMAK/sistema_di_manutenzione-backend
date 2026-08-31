@@ -198,3 +198,89 @@ describe('suspend / resume worked-time accounting', () => {
     expect(res.status).toBe(409);
   });
 });
+
+describe('one running work span at a time', () => {
+  let app;
+  beforeAll(() => {
+    app = createTestApp();
+  });
+
+  // Two Created faults assigned to the same fresh worker, plus a logged-in
+  // agent for them.
+  const setupTwoFaults = async () => {
+    const plant = await createPlant();
+    const part = await createPlantPart(plant);
+    const op = await createUser({ role: 'operator' });
+    const worker = await createUser({
+      role: 'maintenanceWorker',
+      email: `w-oaat-${Date.now()}-${Math.floor(Math.random() * 1000)}@example.com`,
+    });
+    const agent = await loginAs(app, worker);
+    const makeFault = () =>
+      Fault.create({
+        faultId: `SEG-2026-07-${Math.floor(Math.random() * 900 + 100)}`,
+        userId: op.user._id,
+        nameOperator: op.user.fullName,
+        dataCreated: new Date().toISOString().slice(0, 10),
+        timeCreated: '09:00',
+        plantId: plant._id,
+        partId: part._id,
+        typeFault: 'Production',
+        comment: 'one-at-a-time test',
+        statusFault: 'Created',
+        assignedMaintainers: [worker.user._id],
+      });
+    const a = await makeFault();
+    const b = await makeFault();
+    return { agent, a, b };
+  };
+
+  test('claiming a second fault while one runs is blocked, then allowed once it is finalized', async () => {
+    const { agent, a, b } = await setupTwoFaults();
+
+    expect(
+      (await agent.patch(`/maintenance-worker/fault/${a._id}/claim`)).status,
+    ).toBe(200);
+
+    const blocked = await agent.patch(
+      `/maintenance-worker/fault/${b._id}/claim`,
+    );
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe('ALREADY_WORKING');
+    expect(blocked.body.activeFault.faultId).toBe(a.faultId);
+
+    // Finalize A → frees the running span.
+    const fin = await agent
+      .patch(`/maintenance-worker/fault/${a._id}`)
+      .send({ statusFault: 'Completed', actualDuration: 15 });
+    expect(fin.status).toBe(200);
+
+    // Now B claims fine.
+    expect(
+      (await agent.patch(`/maintenance-worker/fault/${b._id}/claim`)).status,
+    ).toBe(200);
+  });
+
+  test('resuming a suspended fault is blocked while another fault is running', async () => {
+    const { agent, a, b } = await setupTwoFaults();
+
+    // Claim A then suspend it (span freed).
+    await agent.patch(`/maintenance-worker/fault/${a._id}/claim`);
+    await agent
+      .patch(`/maintenance-worker/fault/${a._id}`)
+      .send({ statusFault: 'Suspended', suspensionReason: 'hold' });
+
+    // Claim B → now the running span.
+    expect(
+      (await agent.patch(`/maintenance-worker/fault/${b._id}/claim`)).status,
+    ).toBe(200);
+
+    // Resuming A is blocked because B is active.
+    const resume = await agent
+      .patch(`/maintenance-worker/fault/${a._id}`)
+      .send({ statusFault: 'In progress' });
+    expect(resume.status).toBe(409);
+    expect(resume.body.code).toBe('ALREADY_WORKING');
+    expect(resume.body.activeFault.faultId).toBe(b.faultId);
+  });
+});

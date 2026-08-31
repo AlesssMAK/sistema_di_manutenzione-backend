@@ -1,5 +1,6 @@
 import createHttpError from 'http-errors';
 import mongoose from 'mongoose';
+import { DateTime } from 'luxon';
 import { Fault } from '../models/fault.js';
 import { FaultView } from '../models/faultView.js';
 import { Plant } from '../models/plant.js';
@@ -10,11 +11,13 @@ import { User } from '../models/user.js';
 // (User.listSeen). Kept in sync with the front-end tab definitions.
 export const LIST_SEEN_KEYS = [
   'worker_active',
+  'worker_inProgress',
   'worker_suspended',
   'worker_overdue',
   'worker_completed',
   'worker_pool',
   'manager_received',
+  'manager_planned',
   'manager_suspended',
   'manager_inprogress',
   'manager_archive',
@@ -29,6 +32,7 @@ import {
 } from '../services/email/index.js';
 import { logFromRequest } from '../services/auditLog.js';
 import { sendPushToRole } from '../services/push/index.js';
+import { getSettings } from '../services/systemSettings.js';
 
 export const createFault = async (req, res) => {
   const {
@@ -179,9 +183,19 @@ export const getAllFault = async (req, res) => {
     dataCreatedFrom,
     timeCreated,
     deadline,
+    deadlineFrom,
+    deadlineTo,
     plannedDate,
     plannedDateFrom,
     plannedDateTo,
+    plannedDateEmpty,
+    plannedDateNotEmpty,
+    completedFrom,
+    completedTo,
+    // "Periodo" filter — a fault matches if ANY of its lifecycle dates
+    // (created / planned / deadline / completed) falls in the range.
+    anyDateFrom,
+    anyDateTo,
     statusFault,
     assignedTo,
     assignedToEmpty,
@@ -199,8 +213,20 @@ export const getAllFault = async (req, res) => {
   } = req.query;
 
   const query = {};
+  // Each entry is an array of OR-conditions; combined with $and at the end
+  // so independent OR groups (search + the "any date" period) don't clobber
+  // each other on query.$or.
+  const orGroups = [];
 
-  if (deadline) query.deadline = deadline;
+  // Deadline: a range (calendar day / Filtri) wins over the single value.
+  // Stored as 'YYYY-MM-DD' strings, so lexicographic bounds are chronological.
+  if (deadlineFrom || deadlineTo) {
+    query.deadline = {};
+    if (deadlineFrom) query.deadline.$gte = deadlineFrom;
+    if (deadlineTo) query.deadline.$lte = deadlineTo;
+  } else if (deadline) {
+    query.deadline = deadline;
+  }
   if (priority) query.priority = priority;
   if (faultId) query.faultId = faultId;
   if (nameOperator) query.nameOperator = nameOperator;
@@ -215,12 +241,12 @@ export const getAllFault = async (req, res) => {
         $or: [{ namePlantPart: rx }, { codePlantPart: rx }],
       }).select('_id'),
     ]);
-    query.$or = [
+    orGroups.push([
       { faultId: rx },
       { nameOperator: rx },
       { plantId: { $in: matchedPlants.map((p) => p._id) } },
       { partId: { $in: matchedParts.map((p) => p._id) } },
-    ];
+    ]);
   }
   if (createdById) query.userId = createdById;
   if (typeFault) query.typeFault = typeFault;
@@ -236,14 +262,69 @@ export const getAllFault = async (req, res) => {
   // A plannedDate range (from Filtri) wins over the single-day filter
   // (from the calendar). plannedDate is a 'YYYY-MM-DD' string, so string
   // comparison orders it correctly.
-  if (plannedDateFrom || plannedDateTo) {
+  // "Ricevute" = not yet planned (no plannedDate); "Pianificate" = already
+  // planned (a plannedDate is set). An explicit date / range is more
+  // specific and wins over the presence checks.
+  if (plannedDateEmpty === true || plannedDateEmpty === 'true') {
+    query.plannedDate = { $in: [null, ''] };
+  } else if (plannedDateFrom || plannedDateTo) {
     query.plannedDate = {};
     if (plannedDateFrom) query.plannedDate.$gte = plannedDateFrom;
     if (plannedDateTo) query.plannedDate.$lte = plannedDateTo;
   } else if (plannedDate) {
     query.plannedDate = plannedDate;
+  } else if (plannedDateNotEmpty === true || plannedDateNotEmpty === 'true') {
+    query.plannedDate = { $nin: [null, ''] };
   }
-  // assignedToEmpty takes precedence — pool fault filter
+  // completedAt is a Date, so a 'YYYY-MM-DD' bound has to be turned into a
+  // timezone-aware instant range (start-of-day → start of the day after),
+  // matching how the Completate calendar buckets the closes.
+  if (completedFrom || completedTo) {
+    const settings = await getSettings();
+    const tz = settings?.timezone ?? 'Europe/Rome';
+    query.completedAt = {};
+    if (completedFrom) {
+      query.completedAt.$gte = DateTime.fromISO(completedFrom, { zone: tz })
+        .startOf('day')
+        .toJSDate();
+    }
+    if (completedTo) {
+      query.completedAt.$lt = DateTime.fromISO(completedTo, { zone: tz })
+        .plus({ days: 1 })
+        .startOf('day')
+        .toJSDate();
+    }
+  }
+  // "Periodo" (any-date) filter — a fault matches if ANY lifecycle date is
+  // in the range. plannedDate/deadline are 'YYYY-MM-DD' strings (lexical
+  // bounds); dataCreated/completedAt are Dates (tz-aware instant range).
+  if (anyDateFrom || anyDateTo) {
+    const settings = await getSettings();
+    const tz = settings?.timezone ?? 'Europe/Rome';
+    const strRange = {};
+    if (anyDateFrom) strRange.$gte = anyDateFrom;
+    if (anyDateTo) strRange.$lte = anyDateTo;
+    const dateRange = {};
+    if (anyDateFrom) {
+      dateRange.$gte = DateTime.fromISO(anyDateFrom, { zone: tz })
+        .startOf('day')
+        .toJSDate();
+    }
+    if (anyDateTo) {
+      dateRange.$lt = DateTime.fromISO(anyDateTo, { zone: tz })
+        .plus({ days: 1 })
+        .startOf('day')
+        .toJSDate();
+    }
+    orGroups.push([
+      { plannedDate: strRange },
+      { deadline: strRange },
+      { dataCreated: dateRange },
+      { completedAt: dateRange },
+    ]);
+  }
+
+  // assignedToEmpty — pool fault filter (unassigned faults).
   if (assignedToEmpty === true || assignedToEmpty === 'true') {
     query.assignedMaintainers = { $size: 0 };
   } else if (assignedTo) {
@@ -281,6 +362,13 @@ export const getAllFault = async (req, res) => {
 
     const partIds = parts.map((p) => p._id);
     query.partId = { $in: partIds };
+  }
+
+  // Apply the collected OR groups: one → $or, several → $and of $ors.
+  if (orGroups.length === 1) {
+    query.$or = orGroups[0];
+  } else if (orGroups.length > 1) {
+    query.$and = orGroups.map((group) => ({ $or: group }));
   }
 
   const sortOption = sort === 'asc' ? 1 : -1;
@@ -511,9 +599,31 @@ export const getFaultDeadlines = async (req, res) => {
     assignedToEmpty,
   } = req.query;
 
-  const match = {
-    [field]: { $gte: dateFrom, $lte: dateTo, $ne: null },
-  };
+  // completedAt is a Date column; plannedDate/deadline are 'YYYY-MM-DD'
+  // strings. For the Date column the bounds become a timezone-aware instant
+  // range and the group key is the day string in that zone, so both string-
+  // and date-backed fields bucket per calendar day the same way.
+  const isDateField = field === 'completedAt';
+  let tz = 'Europe/Rome';
+  if (isDateField) {
+    const settings = await getSettings();
+    tz = settings?.timezone ?? tz;
+  }
+
+  const match = isDateField
+    ? {
+        completedAt: {
+          $gte: DateTime.fromISO(dateFrom, { zone: tz })
+            .startOf('day')
+            .toJSDate(),
+          $lt: DateTime.fromISO(dateTo, { zone: tz })
+            .plus({ days: 1 })
+            .startOf('day')
+            .toJSDate(),
+          $ne: null,
+        },
+      }
+    : { [field]: { $gte: dateFrom, $lte: dateTo, $ne: null } };
 
   if (priority) match.priority = priority;
 
@@ -538,7 +648,15 @@ export const getFaultDeadlines = async (req, res) => {
     { $match: match },
     {
       $group: {
-        _id: `$${field}`,
+        _id: isDateField
+          ? {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$completedAt',
+                timezone: tz,
+              },
+            }
+          : `$${field}`,
         count: { $sum: 1 },
         low: { $sum: { $cond: [{ $eq: ['$priority', 'Low'] }, 1, 0] } },
         medium: { $sum: { $cond: [{ $eq: ['$priority', 'Medium'] }, 1, 0] } },

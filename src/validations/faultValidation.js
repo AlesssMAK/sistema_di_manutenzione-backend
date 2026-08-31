@@ -92,6 +92,33 @@ export const getAllFaultSchema = {
     plannedDateTo: Joi.string()
       .pattern(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    // Presence filters — "Ricevute" (not planned) vs "Pianificate" (planned).
+    plannedDateEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
+    plannedDateNotEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
+    // Deadline range — the "In ritardo" tab's calendar buckets by deadline,
+    // so a day click / Filtri range narrows the list by deadline too.
+    deadlineFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    deadlineTo: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    // Completed-at range (Date column) — the "Completate" tab buckets by
+    // the day a fault was closed. Bounds are 'YYYY-MM-DD'; the controller
+    // turns them into a timezone-aware instant range.
+    completedFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    completedTo: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    // "Periodo" — matches a fault if any of its dates is in the range.
+    anyDateFrom: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    anyDateTo: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     assignedTo: Joi.string().trim().optional(),
     assignedToEmpty: Joi.boolean().truthy('true').falsy('false').optional(),
     // statusFault accepts a single value or a CSV list (e.g. "In progress,Suspended,Overdue")
@@ -149,11 +176,13 @@ export const patchListSeenSchema = {
     key: Joi.string()
       .valid(
         'worker_active',
+        'worker_inProgress',
         'worker_suspended',
         'worker_overdue',
         'worker_completed',
         'worker_pool',
         'manager_received',
+        'manager_planned',
         'manager_suspended',
         'manager_inprogress',
         'manager_archive',
@@ -183,9 +212,12 @@ export const getDeadlinesSchema = {
       .messages({
         'string.pattern.base': 'dateTo must be in format YYYY-MM-DD',
       }),
-    // Which Fault field to aggregate on. plannedDate covers the
-    // calendar's per-day badges; deadline covers the overdue heatmap.
-    field: Joi.string().valid('plannedDate', 'deadline').default('plannedDate'),
+    // Which Fault field to aggregate on. plannedDate covers the planning
+    // tabs' per-day badges; deadline covers the "In ritardo" tab;
+    // completedAt covers the "Completate" tab (closed-per-day badges).
+    field: Joi.string()
+      .valid('plannedDate', 'deadline', 'completedAt')
+      .default('plannedDate'),
     statusFault: Joi.string()
       .trim()
       .custom((value, helpers) => {
