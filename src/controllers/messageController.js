@@ -147,14 +147,10 @@ export const createBroadcast = async (req, res) => {
 };
 
 // ---------- GET /messages/inbox ----------
+// Receiving direct messages is open to everyone (operators included) — the
+// send permission (`permissions.canSendMessages`) only gates SENDING, not
+// the inbox. The "sent" box is naturally empty for a user who can't send.
 export const listInbox = async (req, res) => {
-  const canSend =
-    req.user.role !== 'operator' ||
-    req.user.permissions?.canSendMessages === true;
-  if (!canSend) {
-    throw createHttpError(403, 'No direct inbox');
-  }
-
   const { box, page, perPage, unreadOnly } = req.query;
   const userId = req.user._id;
 
@@ -265,11 +261,8 @@ export const getThread = async (req, res) => {
 // Chat-list view of the direct inbox: one entry per counterpart with the
 // latest message and the unread count, newest first.
 export const listConversations = async (req, res) => {
-  const canSend =
-    req.user.role !== 'operator' ||
-    req.user.permissions?.canSendMessages === true;
-  if (!canSend) throw createHttpError(403, 'No direct inbox');
-
+  // Open to everyone — receiving direct messages isn't gated by the send
+  // permission (see listInbox).
   const { page, perPage } = req.query;
   const me = new mongoose.Types.ObjectId(String(req.user._id));
 
@@ -510,6 +503,14 @@ export const replyToMessage = async (req, res) => {
   const { subject, body } = req.body;
   const userId = req.user._id;
   const userRole = req.user.role;
+
+  // Replying is sending, so it stays behind the send permission: operators
+  // may READ any message but only reply when allowed to send.
+  const canSend =
+    userRole !== 'operator' || req.user.permissions?.canSendMessages === true;
+  if (!canSend) {
+    throw createHttpError(403, 'Not allowed to send direct messages');
+  }
 
   const original = await Message.findById(id);
   if (!original) throw createHttpError(404, 'Message not found');

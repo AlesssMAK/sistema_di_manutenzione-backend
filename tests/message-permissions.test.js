@@ -9,20 +9,34 @@ describe('messaging permission (canSendMessages)', () => {
     app = createTestApp();
   });
 
-  test('operator without the flag cannot send or have an inbox (403)', async () => {
-    const op = await loginAs(
-      app,
-      await createUser({ role: 'operator', fullName: 'Op NoFlag' })
-    );
-    const manager = await createUser({ role: 'manager' });
+  test('operator without the flag receives messages but cannot send or reply', async () => {
+    const opUser = await createUser({ role: 'operator', fullName: 'Op NoFlag' });
+    const op = await loginAs(app, opUser);
+    const mgrUser = await createUser({ role: 'manager' });
+    const manager = await loginAs(app, mgrUser);
 
+    // Cannot send.
     const send = await op
       .post('/messages/direct')
-      .send({ recipientId: String(manager.user._id), body: 'ciao' });
+      .send({ recipientId: String(mgrUser.user._id), body: 'ciao' });
     expect(send.status).toBe(403);
 
+    // A manager sends the operator a direct message → it lands in the inbox.
+    const sent = await manager
+      .post('/messages/direct')
+      .send({ recipientId: String(opUser.user._id), body: 'ciao op' });
+    expect(sent.status).toBe(201);
+
+    // Receiving is open: the operator can read the inbox and sees it.
     const inbox = await op.get('/messages/inbox');
-    expect(inbox.status).toBe(403);
+    expect(inbox.status).toBe(200);
+    expect(inbox.body.total).toBeGreaterThanOrEqual(1);
+
+    // Replying is sending, so it stays blocked.
+    const reply = await op
+      .post(`/messages/${sent.body._id}/reply`)
+      .send({ body: 'no can do' });
+    expect(reply.status).toBe(403);
   });
 
   test('operator WITH the flag can send and read the inbox', async () => {
