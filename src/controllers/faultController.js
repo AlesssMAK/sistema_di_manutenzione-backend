@@ -24,6 +24,7 @@ export const LIST_SEEN_KEYS = [
   'safety_all',
 ];
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
+import { escapeRegex } from '../utils/escapeRegex.js';
 import { emitFaultCreated } from '../socket/emitters.js';
 import {
   sendNewFaultEmail,
@@ -234,7 +235,7 @@ export const getAllFault = async (req, res) => {
   // or the machine / part (by name or code). Plant/part live in other
   // collections, so resolve the matching ids first.
   if (search) {
-    const rx = new RegExp(search, 'i');
+    const rx = new RegExp(escapeRegex(search), 'i');
     const [matchedPlants, matchedParts] = await Promise.all([
       Plant.find({ $or: [{ namePlant: rx }, { code: rx }] }).select('_id'),
       PlantPart.find({

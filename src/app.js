@@ -126,6 +126,11 @@ const createAdminJS = (app) => {
       name: 'adminjs',
     },
   );
+  // AdminJS is mounted before the global helmet() (its own router ends the
+  // chain), so give it its own security headers here. CSP is disabled: the
+  // default policy blocks AdminJS's inline styles/scripts and breaks the
+  // panel — the other protections (HSTS, noSniff, frameguard, …) still apply.
+  app.use(admin.options.rootPath, helmet({ contentSecurityPolicy: false }));
   app.use(admin.options.rootPath, adminRouter);
 
   if (!isProd) {

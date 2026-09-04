@@ -438,15 +438,15 @@ export const listAnnouncements = async (req, res) => {
 export const getUnreadCount = async (req, res) => {
   const userId = req.user._id;
   const role = req.user.role;
-  const isOperator = role === 'operator';
 
-  const directFilter = isOperator
-    ? null
-    : {
-        type: MESSAGE_TYPE.DIRECT,
-        recipientId: userId,
-        readBy: { $ne: userId },
-      };
+  // Direct unread is counted for everyone, operators included — they receive
+  // direct messages too (only sending is gated), so their dashboard badge
+  // must reflect unread personal messages.
+  const directFilter = {
+    type: MESSAGE_TYPE.DIRECT,
+    recipientId: userId,
+    readBy: { $ne: userId },
+  };
 
   const roleFilter = {
     type: MESSAGE_TYPE.BROADCAST_ROLE,
@@ -460,7 +460,7 @@ export const getUnreadCount = async (req, res) => {
   };
 
   const [direct, roleAnnouncements, allAnnouncements] = await Promise.all([
-    directFilter ? Message.countDocuments(directFilter) : Promise.resolve(0),
+    Message.countDocuments(directFilter),
     Message.countDocuments(roleFilter),
     Message.countDocuments(allFilter),
   ]);

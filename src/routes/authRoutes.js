@@ -15,7 +15,7 @@ import {
   logoutUser,
 } from '../controllers/authController.js';
 import { ctrlWrapper } from '../utils/ctrlWrapper.js';
-import { authLimiter } from '../middleware/rateLimitAuth.js';
+import { authLimiter, loginLimiter } from '../middleware/rateLimitAuth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { authenticate } from '../middleware/authenticate.js';
 
@@ -31,7 +31,7 @@ router.post(
 );
 
 router.post('/auth/refresh', refreshUserSession);
-router.post('/auth/login', celebrate(loginUserSchema), loginUser);
+router.post('/auth/login', loginLimiter, celebrate(loginUserSchema), loginUser);
 
 // Public self-service password reset (email + password roles only).
 router.post(
