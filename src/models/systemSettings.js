@@ -133,6 +133,9 @@ const systemSettingsSchema = new Schema(
     email: {
       enabled: { type: Boolean, default: true },
       from: { type: String, default: 'noreply@mms.local', trim: true },
+      // Sign-off appended to every email ({{signature}} in the templates).
+      // Language-neutral (company / system name), editable from admin.
+      signature: { type: String, default: 'Syllert', trim: true },
       triggers: {
         onAssignment: { type: Boolean, default: true },
         onNewFault: { type: Boolean, default: true },

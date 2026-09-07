@@ -1,34 +1,11 @@
 import { getSettings } from '../systemSettings.js';
 import { getTransporter } from './transporter.js';
-import { renderTemplate } from './templates.js';
+import { buildEmail } from './render.js';
 import { checkAndConsume } from './rateLimiter.js';
 
 const FRONTEND_URL = () => process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
-const subjectFor = (template, ctx) => {
-  switch (template) {
-    case 'newFault':
-      return `Nuova segnalazione: ${ctx.faultId}`;
-    case 'assignment':
-      return `Nuovo intervento assegnato: ${ctx.faultId}`;
-    case 'sicurezzaHse':
-      return `[SICUREZZA] Nuova segnalazione: ${ctx.faultId}`;
-    case 'suspended':
-      return `Intervento sospeso: ${ctx.faultId}`;
-    case 'reassign':
-      return `Intervento riassegnato: ${ctx.faultId}`;
-    case 'directMessage':
-      return ctx.subject
-        ? `[MMS] ${ctx.subject}`
-        : `Nuovo messaggio da ${ctx.authorName ?? 'MMS'}`;
-    case 'passwordReset':
-      return 'Reimposta la tua password';
-    default:
-      return `MMS: ${ctx.faultId ?? ''}`.trim();
-  }
-};
-
-const sendOne = async ({ to, template, context, from }) => {
+const sendOne = async ({ to, template, context, from, locale, signature }) => {
   const gate = await checkAndConsume(to);
   if (!gate.allowed) {
     console.warn(
@@ -37,12 +14,17 @@ const sendOne = async ({ to, template, context, from }) => {
     return { skipped: true, reason: 'rate_limited' };
   }
 
-  const body = await renderTemplate(template, context);
-  const subject = subjectFor(template, context);
+  // Localized subject + HTML (clickable link) + plain-text fallback.
+  const { subject, html, text } = buildEmail({
+    template,
+    locale,
+    context,
+    signature,
+  });
 
   try {
     const transporter = getTransporter();
-    const result = await transporter.sendMail({ from, to, subject, text: body });
+    const result = await transporter.sendMail({ from, to, subject, html, text });
     return { skipped: false, messageId: result.messageId };
   } catch (err) {
     console.error(`[email] send failed to=${to} template=${template}`, err.message);
@@ -50,11 +32,20 @@ const sendOne = async ({ to, template, context, from }) => {
   }
 };
 
-const sendBulk = async ({ recipients, template, contextFor, from }) => {
+const sendBulk = async ({ recipients, template, contextFor, from, signature }) => {
   const tasks = recipients
     .filter((r) => r?.email)
     .map((r) =>
-      sendOne({ to: r.email, template, context: contextFor(r), from }),
+      sendOne({
+        to: r.email,
+        template,
+        // recipientName + locale come from the User doc so every mail is
+        // greeted by name and sent in that person's chosen language.
+        context: { recipientName: r.fullName, ...contextFor(r) },
+        from,
+        locale: r.locale,
+        signature,
+      }),
     );
   return Promise.allSettled(tasks);
 };
@@ -89,6 +80,7 @@ export const sendNewFaultEmail = async (fault, managers) => {
     recipients: managers,
     template: 'newFault',
     from: gate.settings.email.from,
+    signature: gate.settings.email.signature,
     contextFor: () => ({
       ...baseFaultContext(fault),
       link: buildLink('manager', fault._id),
@@ -107,6 +99,7 @@ export const sendNewFaultMaintainerEmail = async (fault, maintainers) => {
     recipients: maintainers,
     template: 'newFault',
     from: gate.settings.email.from,
+    signature: gate.settings.email.signature,
     contextFor: () => ({
       ...baseFaultContext(fault),
       link: buildLink('maintenance-worker', fault._id),
@@ -123,6 +116,7 @@ export const sendSicurezzaHseEmail = async (fault, hseUsers) => {
     recipients: hseUsers,
     template: 'sicurezzaHse',
     from: gate.settings.email.from,
+    signature: gate.settings.email.signature,
     contextFor: () => ({
       ...baseFaultContext(fault),
       link: buildLink('safety', fault._id),
@@ -139,6 +133,7 @@ export const sendDirectMessageEmail = async (message, recipient) => {
     recipients: [recipient],
     template: 'directMessage',
     from: gate.settings.email.from,
+    signature: gate.settings.email.signature,
     contextFor: () => ({
       recipientName: recipient.fullName ?? '',
       authorName: message.authorName ?? '',
@@ -160,6 +155,7 @@ export const sendSuspendedEmail = async (fault, manager, worker) => {
     recipients: [manager],
     template: 'suspended',
     from: gate.settings.email.from,
+    signature: gate.settings.email.signature,
     contextFor: () => ({
       ...baseFaultContext(fault),
       recipientName: manager.fullName ?? '',
@@ -181,6 +177,7 @@ export const sendReassignEmail = async (fault, removedMaintainers) => {
     recipients: removedMaintainers,
     template: 'reassign',
     from: gate.settings.email.from,
+    signature: gate.settings.email.signature,
     contextFor: (recipient) => ({
       ...baseFaultContext(fault),
       recipientName: recipient.fullName ?? recipient.name ?? '',
@@ -202,6 +199,8 @@ export const sendPasswordResetEmail = async (user, link) => {
     to: user.email,
     template: 'passwordReset',
     from: settings.email.from,
+    locale: user.locale,
+    signature: settings.email.signature,
     context: {
       recipientName: user.fullName ?? '',
       link,
@@ -218,6 +217,7 @@ export const sendAssignmentEmail = async (fault, maintainers) => {
     recipients: maintainers,
     template: 'assignment',
     from: gate.settings.email.from,
+    signature: gate.settings.email.signature,
     contextFor: (recipient) => ({
       ...baseFaultContext(fault),
       recipientName: recipient.fullName ?? recipient.name ?? '',

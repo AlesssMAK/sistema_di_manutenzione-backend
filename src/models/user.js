@@ -54,6 +54,13 @@ const userSchema = new Schema(
       type: Boolean,
       default: true, // Чтобы отследить первый вход и заставить сменить пароль
     },
+    // Preferred UI language, mirrored from the app when the user switches
+    // it. Drives the localized email templates (falls back to 'it').
+    locale: {
+      type: String,
+      enum: ['it', 'en', 'es', 'pl'],
+      default: 'it',
+    },
     // Self-service password reset. We store only the SHA-256 hash of the
     // token; the raw token lives solely in the emailed link.
     resetPasswordToken: { type: String },

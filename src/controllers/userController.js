@@ -2,6 +2,7 @@ import createHttpError from 'http-errors';
 import { User } from '../models/user.js';
 import bcrypt from 'bcrypt';
 import { logFromRequest, redactMeta } from '../services/auditLog.js';
+import { escapeRegex } from '../utils/escapeRegex.js';
 
 export const updateProfile = async (req, res) => {
   const targetUser = await User.findById(req.params.userId);
@@ -153,8 +154,16 @@ export const getAllUsers = async (req, res) => {
 
   if (search) {
     usersQuery.where({
-      $or: [{ fullName: { $regex: search, $options: 'i' } }],
+      $or: [{ fullName: { $regex: escapeRegex(search), $options: 'i' } }],
     });
+  }
+
+  // Field scoping: only admins get the full user record (email, permissions,
+  // warehouse grants — needed by the admin management screens). Everyone else
+  // (e.g. the direct-message recipient picker) gets identity fields only, so
+  // a logged-in operator can't enumerate everyone's email / permissions.
+  if (req.user?.role !== 'admin') {
+    usersQuery.select('_id fullName role status');
   }
 
   const [totalUsers, users] = await Promise.all([
@@ -181,4 +190,13 @@ export const getUser = async (req, res) => {
     success: true,
     user: user,
   });
+};
+
+// Self-service: mirror the UI language the user just switched to onto their
+// profile, so localized emails go out in the language they actually use.
+export const updateMyLocale = async (req, res) => {
+  const { locale } = req.body;
+  req.user.locale = locale;
+  await req.user.save();
+  return res.status(200).json({ success: true, locale });
 };
