@@ -191,3 +191,12 @@ export const getUser = async (req, res) => {
     user: user,
   });
 };
+
+// Self-service: mirror the UI language the user just switched to onto their
+// profile, so localized emails go out in the language they actually use.
+export const updateMyLocale = async (req, res) => {
+  const { locale } = req.body;
+  req.user.locale = locale;
+  await req.user.save();
+  return res.status(200).json({ success: true, locale });
+};

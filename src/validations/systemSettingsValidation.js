@@ -73,6 +73,9 @@ const workScheduleOverridesSchema = Joi.object({
 const emailSchema = Joi.object({
   enabled: Joi.boolean(),
   from: Joi.string().trim().email({ tlds: { allow: false } }),
+  // Sign-off appended to every email body. Language-neutral, so a single
+  // configurable string (not per-locale).
+  signature: Joi.string().trim().allow('').max(200),
   // Must mirror systemSettings model email.triggers — celebrate
   // rejects unknown keys, so a trigger missing here can't be saved
   // from the admin UI. onSuspended + onReassign were absent.
