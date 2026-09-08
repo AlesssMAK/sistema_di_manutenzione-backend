@@ -31,12 +31,9 @@ export const registerUserSchema = {
 
     email: Joi.string().email().required(),
 
-    // password тільки для НЕ операторів
-    password: Joi.when('role', {
-      is: 'operator',
-      then: Joi.forbidden(),
-      otherwise: strongPassword.required(),
-    }),
+    // Admin never sets passwords: non-operators are invited by email and set
+    // their own via the activation link; operators use a personal code.
+    password: Joi.forbidden(),
 
     avatar: Joi.string().allow('').default(''),
 

@@ -5,15 +5,21 @@ import bcrypt from 'bcrypt';
 import { createSession, setSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
 import { logEvent } from '../services/auditLog.js';
-import { sendPasswordResetEmail } from '../services/email/index.js';
+import {
+  sendPasswordResetEmail,
+  sendAccountInviteEmail,
+} from '../services/email/index.js';
 import { isDemoMode } from '../constants/demo.js';
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const FRONTEND_URL = () => process.env.FRONTEND_URL ?? 'http://localhost:3000';
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+// Activation link for admin-invited users — longer than a reset, since a new
+// hire may not act immediately. Expired? They just use "forgot password".
+const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export const registerUser = async (req, res) => {
-  const { role, fullName, email, password, personalCode } = req.body;
+  const { role, fullName, email, personalCode } = req.body;
 
   // Demo: don't actually create users (keeps the shared demo clean), but
   // return a realistic success so the UX flow works. Nothing is saved.
@@ -40,19 +46,36 @@ export const registerUser = async (req, res) => {
     }
   }
 
-  let hashedPassword = null;
+  const isOperator = role === 'operator';
 
-  if (role !== 'operator') {
-    hashedPassword = await bcrypt.hash(password, 10);
+  // Non-operators are created via invite: a random, never-disclosed password
+  // satisfies the model, and an activation token lets the user set their own
+  // real password from the emailed link — the admin never sets/knows it.
+  const create = { fullName, email, role };
+  let inviteToken = null;
+  if (isOperator) {
+    create.personalCode = personalCode;
+  } else {
+    create.password = await bcrypt.hash(
+      crypto.randomBytes(32).toString('hex'),
+      10,
+    );
+    create.isFirstLogin = true;
+    inviteToken = crypto.randomBytes(32).toString('hex');
+    create.resetPasswordToken = sha256(inviteToken);
+    create.resetPasswordExpires = new Date(Date.now() + INVITE_TOKEN_TTL_MS);
   }
 
-  const newUser = await User.create({
-    fullName,
-    email,
-    password: role === 'operator' ? undefined : hashedPassword,
-    personalCode: role === 'operator' ? personalCode : undefined,
-    role,
-  });
+  const newUser = await User.create(create);
+
+  // Fire-and-forget invite; a transport failure never blocks user creation
+  // (admin sees the user; they can also self-serve "forgot password").
+  if (inviteToken) {
+    const link = `${FRONTEND_URL()}/reset-password?token=${inviteToken}`;
+    sendAccountInviteEmail(newUser, link).catch((err) =>
+      console.error('[auth] invite email failed', err?.message),
+    );
+  }
 
   // Admin creates users through this endpoint (route gates on
   // requireAdmin) — credit the admin as the actor.
@@ -293,6 +316,43 @@ export const resetPassword = async (req, res) => {
 
 //   res.status(201).json(newUser);
 // };
+
+// Admin-triggered: (re)send a set-password / activation link to an existing
+// non-operator user (never activated, or lost/expired their link). Reuses the
+// reset-token machinery + the invite email. Route gates on requireAdmin.
+export const sendUserResetLink = async (req, res) => {
+  const targetUser = await User.findById(req.params.userId);
+  if (!targetUser) throw createHttpError(404, 'User not found');
+  if (targetUser.role === 'operator') {
+    throw createHttpError(
+      400,
+      'Operators sign in with a personal code, not an email link',
+    );
+  }
+  if (!targetUser.email) throw createHttpError(400, 'User has no email address');
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  targetUser.resetPasswordToken = sha256(rawToken);
+  targetUser.resetPasswordExpires = new Date(Date.now() + INVITE_TOKEN_TTL_MS);
+  await targetUser.save();
+
+  const link = `${FRONTEND_URL()}/reset-password?token=${rawToken}`;
+  const result = await sendAccountInviteEmail(targetUser, link);
+
+  logEvent({
+    actorId: req.user?._id ?? null,
+    actorRole: req.user?.role ?? 'admin',
+    action: 'auth.passwordResetRequested',
+    targetType: 'User',
+    targetId: targetUser._id,
+    summary: `Admin sent a password link to ${targetUser.fullName}`,
+    req,
+  });
+
+  return res
+    .status(200)
+    .json({ success: true, emailSkipped: result?.skipped ?? false });
+};
 
 export const logoutUser = async (req, res) => {
   const { sessionId } = req.cookies;

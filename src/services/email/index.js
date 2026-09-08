@@ -208,6 +208,28 @@ export const sendPasswordResetEmail = async (user, link) => {
   });
 };
 
+// Account activation (invite): admin creates the user, they set their own
+// password via this link. Same security-style gating as password reset
+// (enabled + from, no notification trigger).
+export const sendAccountInviteEmail = async (user, link) => {
+  const settings = await getSettings();
+  if (!settings?.email?.enabled) return { skipped: true, reason: 'email_disabled' };
+  if (!settings?.email?.from) return { skipped: true, reason: 'no_from' };
+  if (!user?.email) return { skipped: true, reason: 'no_recipient_email' };
+
+  return sendOne({
+    to: user.email,
+    template: 'accountInvite',
+    from: settings.email.from,
+    locale: user.locale,
+    signature: settings.email.signature,
+    context: {
+      recipientName: user.fullName ?? '',
+      link,
+    },
+  });
+};
+
 export const sendAssignmentEmail = async (fault, maintainers) => {
   const gate = await guard('onAssignment');
   if (!gate.ok) return { skipped: true, reason: gate.reason };

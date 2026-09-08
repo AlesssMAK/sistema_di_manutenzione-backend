@@ -9,6 +9,7 @@ import {
   updateMyLocale,
 } from '../controllers/userController.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
+import { sendUserResetLink } from '../controllers/authController.js';
 
 const router = Router();
 router.patch(
@@ -23,6 +24,14 @@ router.put(
   authenticate,
   requireAdmin,
   ctrlWrapper(updateProfile),
+);
+
+// Admin re-sends a set-password / activation link to an existing user.
+router.post(
+  '/users/:userId/send-reset',
+  authenticate,
+  requireAdmin,
+  ctrlWrapper(sendUserResetLink),
 );
 
 router.get('/users', authenticate, ctrlWrapper(getAllUsers));

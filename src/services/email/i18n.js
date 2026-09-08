@@ -36,6 +36,12 @@ export const STRINGS = {
       cta: 'Reimposta la password',
       note: 'Il link è valido per 1 ora e può essere usato una sola volta. Se non hai richiesto tu il reset, ignora questa email: la tua password resta invariata.',
     },
+    accountInvite: {
+      subject: 'Attiva il tuo account',
+      intro: 'imposta la password del tuo account per accedere.',
+      cta: 'Imposta la password',
+      note: 'Il link è valido per 7 giorni. Se non ti aspettavi questa email, ignorala.',
+    },
     newFault: {
       subject: 'Nuova segnalazione: {faultId}',
       intro: 'È stata creata una nuova segnalazione.',
@@ -96,6 +102,12 @@ export const STRINGS = {
       intro: 'you requested to reset your account password.',
       cta: 'Reset password',
       note: 'The link is valid for 1 hour and can be used only once. If you didn’t request this, ignore this email: your password stays unchanged.',
+    },
+    accountInvite: {
+      subject: 'Activate your account',
+      intro: 'set the password for your account to sign in.',
+      cta: 'Set password',
+      note: 'The link is valid for 7 days. If you weren’t expecting this email, ignore it.',
     },
     newFault: {
       subject: 'New report: {faultId}',
@@ -158,6 +170,12 @@ export const STRINGS = {
       cta: 'Restablecer contraseña',
       note: 'El enlace es válido durante 1 hora y solo se puede usar una vez. Si no lo solicitaste, ignora este correo: tu contraseña no cambiará.',
     },
+    accountInvite: {
+      subject: 'Activa tu cuenta',
+      intro: 'establece la contraseña de tu cuenta para acceder.',
+      cta: 'Establecer contraseña',
+      note: 'El enlace es válido durante 7 días. Si no esperabas este correo, ignóralo.',
+    },
     newFault: {
       subject: 'Nuevo aviso: {faultId}',
       intro: 'Se ha creado un nuevo aviso.',
@@ -218,6 +236,12 @@ export const STRINGS = {
       intro: 'poproszono o zresetowanie hasła do Twojego konta.',
       cta: 'Zresetuj hasło',
       note: 'Link jest ważny przez 1 godzinę i można go użyć tylko raz. Jeśli to nie Ty prosiłeś o reset, zignoruj tę wiadomość: hasło pozostanie bez zmian.',
+    },
+    accountInvite: {
+      subject: 'Aktywuj konto',
+      intro: 'ustaw hasło do swojego konta, aby się zalogować.',
+      cta: 'Ustaw hasło',
+      note: 'Link jest ważny przez 7 dni. Jeśli nie spodziewałeś się tej wiadomości, zignoruj ją.',
     },
     newFault: {
       subject: 'Nowe zgłoszenie: {faultId}',
