@@ -1,4 +1,5 @@
 import createHttpError from 'http-errors';
+import crypto from 'node:crypto';
 import { User } from '../models/user.js';
 import bcrypt from 'bcrypt';
 import { logFromRequest, redactMeta } from '../services/auditLog.js';
@@ -69,15 +70,20 @@ export const updateProfile = async (req, res) => {
       );
     }
 
+    // Promoting an operator to an email-role: the admin no longer sets a
+    // password. Give the account a random, never-disclosed placeholder so it
+    // is valid, then the admin sends an activation link ("send reset link"
+    // button) for the user to set their own password.
     if (
       targetUser.role === 'operator' &&
       finalRole !== 'operator' &&
       !updates.password
     ) {
-      throw createHttpError(
-        400,
-        'Password is required when changing role from operator',
+      updates.password = await bcrypt.hash(
+        crypto.randomBytes(32).toString('hex'),
+        10,
       );
+      updates.isFirstLogin = true;
     }
   }
 
